@@ -80,7 +80,7 @@ erDiagram
         int discipline_id FK
         int professor_id FK
         int room_id FK
-        date schedule_date
+        date schedule_date FK
         time start_time
         time end_time
         enum status
@@ -102,10 +102,13 @@ erDiagram
     PROFESSORS ||--o{ TEACHER_AVAILABILITY : has
     PROFESSORS ||--o{ PROFESSOR_DISCIPLINES : teaches
     DISCIPLINES ||--o{ PROFESSOR_DISCIPLINES : assigned_to
+
+    SCHOOL_CALENDAR ||--o{ GENERATED_SCHEDULE : validates
     CLASSES ||--o{ GENERATED_SCHEDULE : has
     DISCIPLINES ||--o{ GENERATED_SCHEDULE : scheduled
     PROFESSORS ||--o{ GENERATED_SCHEDULE : teaches
     ROOMS ||--o{ GENERATED_SCHEDULE : hosts
+
     GENERATED_SCHEDULE ||--o{ ATTENDANCE_RECORDS : has
     STUDENTS ||--o{ ATTENDANCE_RECORDS : registers
 ```
