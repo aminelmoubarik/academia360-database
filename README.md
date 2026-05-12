@@ -31,7 +31,14 @@ The database supports:
 
 ## Repository structure
 
+## Repository structure
+
 ```text
+backend/
+├── app.py
+├── db.py
+└── requirements.txt
+
 database/
 ├── schema.sql
 ├── seed.sql
@@ -40,3 +47,6 @@ database/
 docs/
 ├── database.md
 └── er-diagram.md
+
+.gitignore
+README.md
