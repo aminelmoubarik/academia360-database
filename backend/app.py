@@ -1,7 +1,15 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Optional, Literal
 from db import get_connection
 
 app = FastAPI(title="Academia360 API")
+
+class AttendanceCreate(BaseModel):
+    student_id: int
+    schedule_id: Optional[int] = None
+    punch_type: Literal["in", "out"]
+    punch_method: Literal["nfc", "rfid", "qr", "barcode", "manual"]
 
 
 @app.get("/")
@@ -163,3 +171,56 @@ def get_attendance():
     connection.close()
 
     return data
+
+@app.post("/attendance")
+def create_attendance(record: AttendanceCreate):
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    cursor.execute(
+        "SELECT id FROM students WHERE id = %s",
+        (record.student_id,)
+    )
+    student = cursor.fetchone()
+
+    if student is None:
+        cursor.close()
+        connection.close()
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    if record.schedule_id is not None:
+        cursor.execute(
+            "SELECT id FROM generated_schedule WHERE id = %s",
+            (record.schedule_id,)
+        )
+        schedule = cursor.fetchone()
+
+        if schedule is None:
+            cursor.close()
+            connection.close()
+            raise HTTPException(status_code=404, detail="Schedule not found")
+
+    cursor.execute(
+        """
+        INSERT INTO attendance_records 
+        (student_id, schedule_id, punch_type, punch_method)
+        VALUES (%s, %s, %s, %s)
+        """,
+        (
+            record.student_id,
+            record.schedule_id,
+            record.punch_type,
+            record.punch_method
+        )
+    )
+
+    connection.commit()
+    new_id = cursor.lastrowid
+
+    cursor.close()
+    connection.close()
+
+    return {
+        "message": "Attendance record created successfully",
+        "attendance_id": new_id
+    }
