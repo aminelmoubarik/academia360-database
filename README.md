@@ -20,6 +20,7 @@ The database supports:
 - Generated schedules
 - Attendance records using NFC/RFID/QR/barcode
 
+
 ## Technologies used
 
 - MySQL
@@ -29,7 +30,15 @@ The database supports:
 - GitHub
 - Plane
 
-## Repository structure
+
+## How to run the backend locally
+
+1. Start MySQL using XAMPP.
+2. Open the project in VS Code.
+3. Go to the backend folder:
+
+```powershell
+cd backend
 
 ## Repository structure
 
