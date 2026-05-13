@@ -1,9 +1,25 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from typing import Optional, Literal
+
+from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel
+
 from db import get_connection
+from auth import (
+    verify_password,
+    create_access_token,
+    get_user_by_email,
+    get_current_user,
+    require_roles
+)
+
 
 app = FastAPI(title="Academia360 API")
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 
 class AttendanceCreate(BaseModel):
     student_id: int
@@ -17,8 +33,52 @@ def home():
     return {"message": "Academia360 API is running"}
 
 
+@app.post("/login")
+def login(credentials: LoginRequest):
+    user = get_user_by_email(credentials.email)
+
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if user["password_hash"] is None:
+        raise HTTPException(status_code=401, detail="User password is not configured")
+
+    if not verify_password(credentials.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    access_token = create_access_token(
+        data={
+            "sub": user["email"],
+            "role": user["role"]
+        }
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user["id"],
+            "full_name": user["full_name"],
+            "email": user["email"],
+            "role": user["role"]
+        }
+    }
+
+
+@app.get("/me")
+def get_me(current_user=Depends(get_current_user)):
+    return {
+        "id": current_user["id"],
+        "full_name": current_user["full_name"],
+        "email": current_user["email"],
+        "role": current_user["role"]
+    }
+
+
 @app.get("/students")
-def get_students():
+def get_students(
+    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
@@ -43,7 +103,9 @@ def get_students():
 
 
 @app.get("/professors")
-def get_professors():
+def get_professors(
+    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
@@ -64,7 +126,9 @@ def get_professors():
 
 
 @app.get("/rooms")
-def get_rooms():
+def get_rooms(
+    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
@@ -87,7 +151,9 @@ def get_rooms():
 
 
 @app.get("/disciplines")
-def get_disciplines():
+def get_disciplines(
+    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
@@ -110,7 +176,9 @@ def get_disciplines():
 
 
 @app.get("/schedule")
-def get_schedule():
+def get_schedule(
+    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
@@ -146,7 +214,9 @@ def get_schedule():
 
 
 @app.get("/attendance")
-def get_attendance():
+def get_attendance(
+    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
@@ -172,8 +242,12 @@ def get_attendance():
 
     return data
 
+
 @app.post("/attendance")
-def create_attendance(record: AttendanceCreate):
+def create_attendance(
+    record: AttendanceCreate,
+    current_user=Depends(require_roles(["admin", "secretary", "professor"]))
+):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
