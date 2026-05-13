@@ -21,13 +21,14 @@ The current version supports:
 - Teacher availability
 - Generated schedules
 - Attendance records using NFC/RFID/QR/barcode
-- Basic API endpoints to read data from the database
+- API endpoints to read data from the database
 - Attendance registration through the API
 - Basic authentication
 - JWT token generation
 - Bearer token authorization
 - Role-based endpoint protection
 - Student CRUD endpoints
+- Backend structure organized into routers
 
 ## Technologies used
 
@@ -53,7 +54,14 @@ backend/
 ├── auth.py
 ├── create_demo_passwords.py
 ├── db.py
-└── requirements.txt
+├── models.py
+├── requirements.txt
+└── routers/
+    ├── __init__.py
+    ├── academic.py
+    ├── attendance.py
+    ├── auth_routes.py
+    └── students.py
 
 database/
 ├── schema.sql
@@ -89,7 +97,7 @@ Contains validation queries to check that the database structure and relationshi
 
 Main FastAPI application.
 
-It contains the API endpoints used to read, create, update and delete data from the MySQL database.
+It creates the FastAPI app, defines the health endpoint and includes the different routers.
 
 ### `backend/auth.py`
 
@@ -120,6 +128,28 @@ Demo users include:
 Database connection file.
 
 It connects the FastAPI backend with the local MySQL database.
+
+### `backend/models.py`
+
+Contains the Pydantic request models used by the API.
+
+Current models include:
+
+- `LoginRequest`
+- `AttendanceCreate`
+- `StudentCreate`
+- `StudentUpdate`
+
+### `backend/routers/`
+
+Contains the API routers grouped by feature.
+
+Current routers:
+
+- `auth_routes.py`: login and current user endpoints
+- `students.py`: student read and CRUD endpoints
+- `attendance.py`: attendance read and creation endpoints
+- `academic.py`: professors, rooms, disciplines and schedule endpoints
 
 ### `backend/requirements.txt`
 
@@ -243,25 +273,35 @@ GET /
 POST /login
 ```
 
-### Authenticated endpoints
+### Authentication endpoints
 
 ```text
 GET /me
+```
+
+### Student endpoints
+
+```text
 GET /students
-GET /professors
-GET /rooms
-GET /disciplines
-GET /schedule
+POST /students
+PUT /students/{student_id}
+DELETE /students/{student_id}
+```
+
+### Attendance endpoints
+
+```text
 GET /attendance
 POST /attendance
 ```
 
-### Student CRUD endpoints
+### Academic data endpoints
 
 ```text
-POST /students
-PUT /students/{student_id}
-DELETE /students/{student_id}
+GET /professors
+GET /rooms
+GET /disciplines
+GET /schedule
 ```
 
 The API returns data in JSON format.
@@ -303,6 +343,21 @@ Validation included:
 - Returns `409 Conflict` if the student number or card UID already exists.
 - Returns `409 Conflict` if trying to delete a student with attendance records.
 - Returns `403 Not enough permissions` if the user role is not allowed.
+- Returns `401 Invalid authentication credentials` if the token is missing or invalid.
+
+## Backend structure
+
+The backend has been refactored into routers to keep the code organized.
+
+Current router groups:
+
+- Authentication
+- Students
+- Attendance
+- Academic Data
+- Health
+
+This makes the project easier to maintain and prepares it for future features such as professor CRUD, room CRUD, discipline CRUD and schedule management.
 
 ## Current status
 
@@ -316,9 +371,9 @@ Completed:
 - Validation queries
 - Entity Relationship Diagram
 - Database documentation
+- API documentation
 - Initial FastAPI backend
 - MySQL database connection
-- API documentation
 - Read endpoints
 - Attendance registration endpoint
 - Basic authentication
@@ -328,17 +383,13 @@ Completed:
 - Student CRUD endpoints
 - Student creation, update and delete
 - Class validation when creating or updating students
+- Duplicate student number/card UID validation
 - Protection against deleting students with attendance records
-
-
-- Student CRUD endpoints
-- Student creation, update and delete
-- Class validation when creating or updating students
-- Protection against deleting students with attendance records
+- Backend refactored into routers
+- API endpoints grouped by feature
 
 ## Next steps
 
-- Refactor the backend into multiple files and routers
 - Add CRUD endpoints for professors
 - Add CRUD endpoints for rooms
 - Add CRUD endpoints for disciplines
