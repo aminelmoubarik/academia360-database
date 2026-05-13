@@ -191,6 +191,10 @@ Completed:
 - MySQL database connection
 - Read-only API endpoints
 - API documentation
+- - Basic authentication
+- JWT token generation
+- Bearer token authorization
+- Role-based endpoint protection
 
 ## Next steps
 
