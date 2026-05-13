@@ -7,28 +7,6 @@ from auth import require_roles
 router = APIRouter(tags=["Academic Data"])
 
 
-@router.get("/professors")
-def get_professors(
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
-):
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
-
-    cursor.execute("""
-        SELECT 
-            id,
-            full_name,
-            email
-        FROM professors
-    """)
-
-    data = cursor.fetchall()
-
-    cursor.close()
-    connection.close()
-
-    return data
-
 
 @router.get("/rooms")
 def get_rooms(

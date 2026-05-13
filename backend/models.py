@@ -27,3 +27,15 @@ class StudentUpdate(BaseModel):
     student_number: Optional[str] = None
     card_uid: Optional[str] = None
     class_id: Optional[int] = None
+
+
+class ProfessorCreate(BaseModel):
+    user_id: Optional[int] = None
+    full_name: str
+    email: str
+
+
+class ProfessorUpdate(BaseModel):
+    user_id: Optional[int] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None

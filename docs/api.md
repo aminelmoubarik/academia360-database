@@ -454,6 +454,75 @@ Allowed roles:
 
 ---
 
+## Professor CRUD
+
+The API includes basic CRUD operations for professor management.
+
+### GET `/professors`
+
+Returns the list of professors.
+
+Allowed roles:
+
+- admin
+- director
+- secretary
+
+### POST `/professors`
+
+Creates a new professor.
+
+Allowed roles:
+
+- admin
+- secretary
+
+Example request:
+
+```json
+{
+  "user_id": null,
+  "full_name": "Test Professor",
+  "email": "test.professor@academia360.pt"
+}
+```
+
+### PUT `/professors/{professor_id}`
+
+Updates an existing professor.
+
+Allowed roles:
+
+- admin
+- secretary
+
+Example request:
+
+```json
+{
+  "user_id": null,
+  "full_name": "Updated Test Professor",
+  "email": "updated.professor@academia360.pt"
+}
+```
+
+### DELETE `/professors/{professor_id}`
+
+Deletes a professor only if the professor has no related schedules, availability records or discipline assignments.
+
+Allowed roles:
+
+- admin
+- secretary
+
+Validation:
+
+- Returns `404 User not found` if the assigned user does not exist.
+- Returns `404 Professor not found` if the professor does not exist.
+- Returns `409 Conflict` if the professor email or user already exists.
+- Returns `409 Conflict` if trying to delete a professor with related records.
+- Returns `403 Not enough permissions` if the user role is not allowed.
+
 ## Current status
 
 The API is working locally and has been tested with the MySQL database.
