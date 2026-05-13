@@ -192,6 +192,12 @@ Completed:
 - Read-only API endpoints
 - API documentation
 
+
+- Student CRUD endpoints
+- Student creation, update and delete
+- Class validation when creating or updating students
+- Protection against deleting students with attendance records
+
 ## Next steps
 
 - Add endpoint to register attendance

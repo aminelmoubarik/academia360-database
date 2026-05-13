@@ -120,20 +120,50 @@ Example response:
   "attendance_id": 3
 }
 ```
+## Authentication
 
-## Current status
+The API includes basic authentication using JWT tokens.
 
-The initial API is working locally and has been tested with the MySQL database.
+### POST `/login`
 
-The API currently supports:
+Authenticates a user with email and password and returns an access token.
 
-- Reading students
-- Reading professors
-- Reading rooms
-- Reading disciplines
-- Reading generated schedules
-- Reading attendance records
-- Creating attendance records
+### GET `/me`
+
+Returns the currently authenticated user.
+
+Protected endpoints require a Bearer token using the Swagger Authorize button.
+
+Roles currently supported:
+
+- admin
+- director
+- secretary
+- professor
+
+## Student CRUD
+
+The API includes basic CRUD operations for student management.
+
+### POST `/students`
+
+Creates a new student.
+
+Allowed roles:
+
+- admin
+- secretary
+
+Example request:
+
+```json
+{
+  "full_name": "Test Student",
+  "student_number": "STU010",
+  "card_uid": "CARD010",
+  "class_id": 1
+}
+
 
 ## Next steps
 
