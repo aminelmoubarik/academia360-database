@@ -22,6 +22,12 @@ The current version supports:
 - Generated schedules
 - Attendance records using NFC/RFID/QR/barcode
 - Basic API endpoints to read data from the database
+- Attendance registration through the API
+- Basic authentication
+- JWT token generation
+- Bearer token authorization
+- Role-based endpoint protection
+- Student CRUD endpoints
 
 ## Technologies used
 
@@ -31,6 +37,9 @@ The current version supports:
 - FastAPI
 - Uvicorn
 - mysql-connector-python
+- passlib
+- bcrypt
+- python-jose
 - VS Code
 - MySQL Shell for VS Code
 - GitHub
@@ -41,6 +50,8 @@ The current version supports:
 ```text
 backend/
 ├── app.py
+├── auth.py
+├── create_demo_passwords.py
 ├── db.py
 └── requirements.txt
 
@@ -78,7 +89,31 @@ Contains validation queries to check that the database structure and relationshi
 
 Main FastAPI application.
 
-It contains the API endpoints used to read data from the MySQL database.
+It contains the API endpoints used to read, create, update and delete data from the MySQL database.
+
+### `backend/auth.py`
+
+Authentication and authorization logic.
+
+It includes:
+
+- Password hashing
+- Password verification
+- JWT token creation
+- Bearer token authentication
+- Role-based access control
+
+### `backend/create_demo_passwords.py`
+
+Development script used to generate password hashes for demo users.
+
+Demo users include:
+
+- `admin@academia360.pt`
+- `director@academia360.pt`
+- `secretary@academia360.pt`
+- `afonso@academia360.pt`
+- `joana@academia360.pt`
 
 ### `backend/db.py`
 
@@ -121,14 +156,29 @@ Contains the Entity Relationship Diagram using Mermaid.
 ## How to run the database locally
 
 1. Start MySQL using XAMPP.
+
 2. Open the project in VS Code.
+
 3. Connect to MySQL using MySQL Shell for VS Code.
+
 4. Execute the SQL files in this order:
 
 ```text
 database/schema.sql
 database/seed.sql
 database/queries.sql
+```
+
+5. Go to the backend folder:
+
+```powershell
+cd backend
+```
+
+6. Generate demo user password hashes:
+
+```powershell
+py create_demo_passwords.py
 ```
 
 ## How to run the backend locally
@@ -163,17 +213,96 @@ py -m uvicorn app:app --reload
 http://127.0.0.1:8000/docs
 ```
 
+## Authentication
+
+The API includes basic authentication using JWT tokens.
+
+Users log in with email and password using:
+
+```text
+POST /login
+```
+
+If the credentials are valid, the API returns an access token.
+
+Protected endpoints require a Bearer token using the Swagger `Authorize` button.
+
+Current roles:
+
+- `admin`
+- `director`
+- `secretary`
+- `professor`
+
 ## Available API endpoints
 
-- `GET /`
-- `GET /students`
-- `GET /professors`
-- `GET /rooms`
-- `GET /disciplines`
-- `GET /schedule`
-- `GET /attendance`
+### Public endpoints
+
+```text
+GET /
+POST /login
+```
+
+### Authenticated endpoints
+
+```text
+GET /me
+GET /students
+GET /professors
+GET /rooms
+GET /disciplines
+GET /schedule
+GET /attendance
+POST /attendance
+```
+
+### Student CRUD endpoints
+
+```text
+POST /students
+PUT /students/{student_id}
+DELETE /students/{student_id}
+```
 
 The API returns data in JSON format.
+
+## Student CRUD
+
+The API includes basic CRUD operations for student management.
+
+### `POST /students`
+
+Creates a new student.
+
+Allowed roles:
+
+- `admin`
+- `secretary`
+
+### `PUT /students/{student_id}`
+
+Updates an existing student.
+
+Allowed roles:
+
+- `admin`
+- `secretary`
+
+### `DELETE /students/{student_id}`
+
+Deletes a student only if the student has no attendance records.
+
+Allowed roles:
+
+- `admin`
+- `secretary`
+
+Validation included:
+
+- Returns `404 Class not found` if the class does not exist.
+- Returns `409 Conflict` if the student number or card UID already exists.
+- Returns `409 Conflict` if trying to delete a student with attendance records.
+- Returns `403 Not enough permissions` if the user role is not allowed.
 
 ## Current status
 
@@ -189,17 +318,26 @@ Completed:
 - Database documentation
 - Initial FastAPI backend
 - MySQL database connection
-- Read-only API endpoints
 - API documentation
-- - Basic authentication
+- Read endpoints
+- Attendance registration endpoint
+- Basic authentication
 - JWT token generation
 - Bearer token authorization
 - Role-based endpoint protection
+- Student CRUD endpoints
+- Student creation, update and delete
+- Class validation when creating or updating students
+- Protection against deleting students with attendance records
 
 ## Next steps
 
-- Add endpoint to register attendance
-- Add authentication
-- Add role-based access control
-- Protect endpoints depending on user role
+- Refactor the backend into multiple files and routers
+- Add CRUD endpoints for professors
+- Add CRUD endpoints for rooms
+- Add CRUD endpoints for disciplines
+- Improve attendance registration logic
+- Add schedule management endpoints
 - Prepare the backend for future Flutter integration
+- Add frontend/mobile interface
+- Add reporting and dashboard features
