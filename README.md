@@ -359,6 +359,7 @@ Current router groups:
 
 This makes the project easier to maintain and prepares it for future features such as professor CRUD, room CRUD, discipline CRUD and schedule management.
 
+
 ## Current status
 
 The initial database model and backend API have been created and tested locally.
@@ -387,6 +388,18 @@ Completed:
 - Protection against deleting students with attendance records
 - Backend refactored into routers
 - API endpoints grouped by feature
+
+## Environment variables
+
+The backend uses environment variables for sensitive configuration.
+
+Create a `.env` file inside the `backend/` folder using `.env.example` as reference.
+
+Example:
+
+```text
+SECRET_KEY=your-secret-key
+ACCESS_TOKEN_EXPIRE_MINUTES=60
 
 ## Next steps
 
