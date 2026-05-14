@@ -25,7 +25,6 @@ def validate_user_exists(cursor, user_id: Optional[int]):
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-
 @router.get("")
 def get_professors(
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
@@ -34,12 +33,25 @@ def get_professors(
     cursor = connection.cursor(dictionary=True)
 
     cursor.execute("""
-        SELECT 
-            id,
-            user_id,
-            full_name,
-            email
+        SELECT
+            professors.id,
+            professors.user_id,
+            professors.full_name,
+            professors.email,
+            users.role AS user_role,
+            GROUP_CONCAT(disciplines.name SEPARATOR ', ') AS disciplines
         FROM professors
+        LEFT JOIN users ON professors.user_id = users.id
+        LEFT JOIN professor_disciplines 
+            ON professors.id = professor_disciplines.professor_id
+        LEFT JOIN disciplines 
+            ON professor_disciplines.discipline_id = disciplines.id
+        GROUP BY
+            professors.id,
+            professors.user_id,
+            professors.full_name,
+            professors.email,
+            users.role
     """)
 
     data = cursor.fetchall()
@@ -48,7 +60,6 @@ def get_professors(
     connection.close()
 
     return data
-
 
 @router.post("")
 def create_professor(
