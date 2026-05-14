@@ -39,3 +39,16 @@ class ProfessorUpdate(BaseModel):
     user_id: Optional[int] = None
     full_name: Optional[str] = None
     email: Optional[str] = None
+
+class RoomCreate(BaseModel):
+    name: str
+    capacity: Optional[int] = None
+    is_practice_room: bool = False
+    location: Optional[str] = None
+
+
+class RoomUpdate(BaseModel):
+    name: Optional[str] = None
+    capacity: Optional[int] = None
+    is_practice_room: Optional[bool] = None
+    location: Optional[str] = None

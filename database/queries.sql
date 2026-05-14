@@ -54,3 +54,7 @@ FROM attendance_records
 JOIN students ON attendance_records.student_id = students.id
 LEFT JOIN generated_schedule ON attendance_records.schedule_id = generated_schedule.id
 LEFT JOIN disciplines ON generated_schedule.discipline_id = disciplines.id;
+
+
+
+

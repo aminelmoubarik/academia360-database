@@ -8,15 +8,15 @@ The project is designed to support attendance registration using NFC/RFID/QR/bar
 
 ## Project objective
 
-The objective of this first version is to design, test and document the initial database structure and create a basic backend API connected to MySQL.
+The objective of this first version is to design, test and document the initial database structure and create a backend API connected to MySQL.
 
 The current version supports:
 
 - Student management
 - Professor management
+- Room management
 - Classes
 - Disciplines
-- Rooms
 - School calendar
 - Teacher availability
 - Generated schedules
@@ -28,7 +28,10 @@ The current version supports:
 - Bearer token authorization
 - Role-based endpoint protection
 - Student CRUD endpoints
+- Professor CRUD endpoints
+- Room CRUD endpoints
 - Backend structure organized into routers
+- Environment-based configuration for secrets and database settings
 
 ## Technologies used
 
@@ -41,6 +44,7 @@ The current version supports:
 - passlib
 - bcrypt
 - python-jose
+- python-dotenv
 - VS Code
 - MySQL Shell for VS Code
 - GitHub
@@ -56,11 +60,14 @@ backend/
 ├── db.py
 ├── models.py
 ├── requirements.txt
+├── .env.example
 └── routers/
     ├── __init__.py
     ├── academic.py
     ├── attendance.py
     ├── auth_routes.py
+    ├── professors.py
+    ├── rooms.py
     └── students.py
 
 database/
@@ -110,6 +117,7 @@ It includes:
 - JWT token creation
 - Bearer token authentication
 - Role-based access control
+- Environment-based secret key configuration
 
 ### `backend/create_demo_passwords.py`
 
@@ -127,7 +135,7 @@ Demo users include:
 
 Database connection file.
 
-It connects the FastAPI backend with the local MySQL database.
+It connects the FastAPI backend with the local MySQL database using environment variables.
 
 ### `backend/models.py`
 
@@ -139,6 +147,10 @@ Current models include:
 - `AttendanceCreate`
 - `StudentCreate`
 - `StudentUpdate`
+- `ProfessorCreate`
+- `ProfessorUpdate`
+- `RoomCreate`
+- `RoomUpdate`
 
 ### `backend/routers/`
 
@@ -148,12 +160,20 @@ Current routers:
 
 - `auth_routes.py`: login and current user endpoints
 - `students.py`: student read and CRUD endpoints
+- `professors.py`: professor read and CRUD endpoints
+- `rooms.py`: room read and CRUD endpoints
 - `attendance.py`: attendance read and creation endpoints
-- `academic.py`: professors, rooms, disciplines and schedule endpoints
+- `academic.py`: disciplines and schedule endpoints
 
 ### `backend/requirements.txt`
 
 Contains the Python dependencies needed to run the backend.
+
+### `backend/.env.example`
+
+Example environment configuration file.
+
+It shows which variables must be created locally in `backend/.env`.
 
 ## Documentation files
 
@@ -182,6 +202,27 @@ Contains the Entity Relationship Diagram using Mermaid.
 - `teacher_availability`
 - `generated_schedule`
 - `attendance_records`
+
+## Environment variables
+
+The backend uses environment variables for sensitive and local configuration.
+
+Create a `.env` file inside the `backend/` folder using `.env.example` as reference.
+
+Example:
+
+```text
+SECRET_KEY=your-secret-key
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=academia360
+```
+
+The `.env` file is ignored by Git and must not be uploaded to GitHub.
 
 ## How to run the database locally
 
@@ -217,27 +258,29 @@ py create_demo_passwords.py
 
 2. Open the project in VS Code.
 
-3. Open a terminal.
+3. Create the local `.env` file inside `backend/`.
 
-4. Go to the backend folder:
+4. Open a terminal.
+
+5. Go to the backend folder:
 
 ```powershell
 cd backend
 ```
 
-5. Install dependencies:
+6. Install dependencies:
 
 ```powershell
 py -m pip install -r requirements.txt
 ```
 
-6. Run the API:
+7. Run the API:
 
 ```powershell
 py -m uvicorn app:app --reload
 ```
 
-7. Open the API documentation:
+8. Open the API documentation:
 
 ```text
 http://127.0.0.1:8000/docs
@@ -288,6 +331,24 @@ PUT /students/{student_id}
 DELETE /students/{student_id}
 ```
 
+### Professor endpoints
+
+```text
+GET /professors
+POST /professors
+PUT /professors/{professor_id}
+DELETE /professors/{professor_id}
+```
+
+### Room endpoints
+
+```text
+GET /rooms
+POST /rooms
+PUT /rooms/{room_id}
+DELETE /rooms/{room_id}
+```
+
 ### Attendance endpoints
 
 ```text
@@ -298,8 +359,6 @@ POST /attendance
 ### Academic data endpoints
 
 ```text
-GET /professors
-GET /rooms
 GET /disciplines
 GET /schedule
 ```
@@ -345,6 +404,83 @@ Validation included:
 - Returns `403 Not enough permissions` if the user role is not allowed.
 - Returns `401 Invalid authentication credentials` if the token is missing or invalid.
 
+## Professor CRUD
+
+The API includes basic CRUD operations for professor management.
+
+### `POST /professors`
+
+Creates a new professor.
+
+Allowed roles:
+
+- `admin`
+- `secretary`
+
+### `PUT /professors/{professor_id}`
+
+Updates an existing professor.
+
+Allowed roles:
+
+- `admin`
+- `secretary`
+
+### `DELETE /professors/{professor_id}`
+
+Deletes a professor only if the professor has no related schedules, availability records or discipline assignments.
+
+Allowed roles:
+
+- `admin`
+- `secretary`
+
+Validation included:
+
+- Returns `404 User not found` if the assigned user does not exist.
+- Returns `404 Professor not found` if the professor does not exist.
+- Returns `409 Conflict` if the professor email or user already exists.
+- Returns `409 Conflict` if trying to delete a professor with related records.
+- Returns `403 Not enough permissions` if the user role is not allowed.
+
+## Room CRUD
+
+The API includes basic CRUD operations for room management.
+
+### `POST /rooms`
+
+Creates a new room.
+
+Allowed roles:
+
+- `admin`
+- `secretary`
+
+### `PUT /rooms/{room_id}`
+
+Updates an existing room.
+
+Allowed roles:
+
+- `admin`
+- `secretary`
+
+### `DELETE /rooms/{room_id}`
+
+Deletes a room only if the room is not used in generated schedules.
+
+Allowed roles:
+
+- `admin`
+- `secretary`
+
+Validation included:
+
+- Returns `400 Room capacity must be greater than 0` if the capacity is invalid.
+- Returns `404 Room not found` if the room does not exist.
+- Returns `409 Conflict` if trying to delete a room with generated schedules.
+- Returns `403 Not enough permissions` if the user role is not allowed.
+
 ## Backend structure
 
 The backend has been refactored into routers to keep the code organized.
@@ -353,12 +489,13 @@ Current router groups:
 
 - Authentication
 - Students
+- Professors
+- Rooms
 - Attendance
 - Academic Data
 - Health
 
-This makes the project easier to maintain and prepares it for future features such as professor CRUD, room CRUD, discipline CRUD and schedule management.
-
+This makes the project easier to maintain and prepares it for future features such as discipline CRUD, schedule management and frontend integration.
 
 ## Current status
 
@@ -375,6 +512,7 @@ Completed:
 - API documentation
 - Initial FastAPI backend
 - MySQL database connection
+- Environment-based configuration
 - Read endpoints
 - Attendance registration endpoint
 - Basic authentication
@@ -383,28 +521,20 @@ Completed:
 - Role-based endpoint protection
 - Student CRUD endpoints
 - Student creation, update and delete
+- Professor CRUD endpoints
+- Professor creation, update and delete
+- Room CRUD endpoints
+- Room creation, update and delete
 - Class validation when creating or updating students
 - Duplicate student number/card UID validation
 - Protection against deleting students with attendance records
+- Protection against deleting professors with related records
+- Protection against deleting rooms with generated schedules
 - Backend refactored into routers
 - API endpoints grouped by feature
 
-## Environment variables
-
-The backend uses environment variables for sensitive configuration.
-
-Create a `.env` file inside the `backend/` folder using `.env.example` as reference.
-
-Example:
-
-```text
-SECRET_KEY=your-secret-key
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
 ## Next steps
 
-- Add CRUD endpoints for professors
-- Add CRUD endpoints for rooms
 - Add CRUD endpoints for disciplines
 - Improve attendance registration logic
 - Add schedule management endpoints

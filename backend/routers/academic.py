@@ -8,31 +8,6 @@ router = APIRouter(tags=["Academic Data"])
 
 
 
-@router.get("/rooms")
-def get_rooms(
-    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
-):
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
-
-    cursor.execute("""
-        SELECT 
-            id,
-            name,
-            capacity,
-            is_practice_room,
-            location
-        FROM rooms
-    """)
-
-    data = cursor.fetchall()
-
-    cursor.close()
-    connection.close()
-
-    return data
-
-
 @router.get("/disciplines")
 def get_disciplines(
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))

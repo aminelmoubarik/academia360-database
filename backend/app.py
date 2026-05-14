@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 
-from routers import auth_routes, students, attendance, academic, professors
-
+from routers import auth_routes, students, attendance, academic, professors, rooms
 
 app = FastAPI(title="Academia360 API")
 
@@ -16,3 +15,4 @@ app.include_router(students.router)
 app.include_router(professors.router)
 app.include_router(attendance.router)
 app.include_router(academic.router)
+app.include_router(rooms.router)

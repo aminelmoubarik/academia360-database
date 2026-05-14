@@ -1,4 +1,4 @@
-# Academia360 API Documentation
+ç# Academia360 API Documentation
 
 This document describes the FastAPI backend created for the Academia360 project.
 
@@ -17,6 +17,7 @@ The backend has been organized into routers to keep the code cleaner and easier 
 - passlib
 - bcrypt
 - python-jose
+- python-dotenv
 
 ## How to run the API locally
 
@@ -24,23 +25,46 @@ The backend has been organized into routers to keep the code cleaner and easier 
 
 2. Open the project in VS Code.
 
-3. Open a terminal.
+3. Create the local `.env` file inside the `backend/` folder using `.env.example` as reference.
 
-4. Go to the backend folder:
+4. Open a terminal.
+
+5. Go to the backend folder:
 
    `cd backend`
 
-5. Install dependencies:
+6. Install dependencies:
 
    `py -m pip install -r requirements.txt`
 
-6. Run the API:
+7. Run the API:
 
    `py -m uvicorn app:app --reload`
 
-7. Open the API documentation:
+8. Open the API documentation:
 
    `http://127.0.0.1:8000/docs`
+
+## Environment variables
+
+The backend uses environment variables for sensitive and local configuration.
+
+The `.env` file must be created inside the `backend/` folder.
+
+Example:
+
+```text
+SECRET_KEY=your-secret-key
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=academia360
+```
+
+The `.env` file is ignored by Git and must not be uploaded to GitHub.
 
 ## Backend structure
 
@@ -50,6 +74,8 @@ Current router groups:
 
 - Authentication
 - Students
+- Professors
+- Rooms
 - Attendance
 - Academic Data
 - Health
@@ -64,11 +90,14 @@ backend/
 ├── db.py
 ├── models.py
 ├── requirements.txt
+├── .env.example
 └── routers/
     ├── __init__.py
     ├── academic.py
     ├── attendance.py
     ├── auth_routes.py
+    ├── professors.py
+    ├── rooms.py
     └── students.py
 ```
 
@@ -77,6 +106,23 @@ backend/
 Main FastAPI application.
 
 It creates the API, defines the health endpoint and includes the routers.
+
+### `auth.py`
+
+Contains authentication and authorization logic:
+
+- Password hashing
+- Password verification
+- JWT token creation
+- Bearer token authentication
+- Role-based access control
+- Environment-based secret key configuration
+
+### `db.py`
+
+Contains the MySQL connection logic.
+
+The database configuration is loaded from environment variables.
 
 ### `models.py`
 
@@ -88,6 +134,10 @@ Current models:
 - `AttendanceCreate`
 - `StudentCreate`
 - `StudentUpdate`
+- `ProfessorCreate`
+- `ProfessorUpdate`
+- `RoomCreate`
+- `RoomUpdate`
 
 ### `routers/auth_routes.py`
 
@@ -105,6 +155,24 @@ Contains student endpoints:
 - `PUT /students/{student_id}`
 - `DELETE /students/{student_id}`
 
+### `routers/professors.py`
+
+Contains professor endpoints:
+
+- `GET /professors`
+- `POST /professors`
+- `PUT /professors/{professor_id}`
+- `DELETE /professors/{professor_id}`
+
+### `routers/rooms.py`
+
+Contains room endpoints:
+
+- `GET /rooms`
+- `POST /rooms`
+- `PUT /rooms/{room_id}`
+- `DELETE /rooms/{room_id}`
+
 ### `routers/attendance.py`
 
 Contains attendance endpoints:
@@ -116,8 +184,6 @@ Contains attendance endpoints:
 
 Contains academic data endpoints:
 
-- `GET /professors`
-- `GET /rooms`
 - `GET /disciplines`
 - `GET /schedule`
 
@@ -155,14 +221,25 @@ POST /login
 
 ```text
 GET /me
+
 GET /students
 POST /students
 PUT /students/{student_id}
 DELETE /students/{student_id}
+
 GET /professors
+POST /professors
+PUT /professors/{professor_id}
+DELETE /professors/{professor_id}
+
 GET /rooms
+POST /rooms
+PUT /rooms/{room_id}
+DELETE /rooms/{room_id}
+
 GET /disciplines
 GET /schedule
+
 GET /attendance
 POST /attendance
 ```
@@ -337,6 +414,202 @@ Student validation:
 
 ---
 
+## Professor endpoints
+
+### GET `/professors`
+
+Returns the list of professors stored in the database.
+
+Allowed roles:
+
+- admin
+- director
+- secretary
+
+### POST `/professors`
+
+Creates a new professor.
+
+Allowed roles:
+
+- admin
+- secretary
+
+Example request:
+
+```json
+{
+  "user_id": null,
+  "full_name": "Test Professor",
+  "email": "test.professor@academia360.pt"
+}
+```
+
+Example response:
+
+```json
+{
+  "message": "Professor created successfully",
+  "professor_id": 3
+}
+```
+
+### PUT `/professors/{professor_id}`
+
+Updates an existing professor.
+
+Allowed roles:
+
+- admin
+- secretary
+
+Example request:
+
+```json
+{
+  "user_id": null,
+  "full_name": "Updated Test Professor",
+  "email": "updated.professor@academia360.pt"
+}
+```
+
+Example response:
+
+```json
+{
+  "message": "Professor updated successfully",
+  "professor_id": 3
+}
+```
+
+### DELETE `/professors/{professor_id}`
+
+Deletes a professor only if the professor has no related schedules, availability records or discipline assignments.
+
+Allowed roles:
+
+- admin
+- secretary
+
+Example response:
+
+```json
+{
+  "message": "Professor deleted successfully",
+  "professor_id": 3
+}
+```
+
+Professor validation:
+
+- Returns `404 User not found` if the assigned user does not exist.
+- Returns `404 Professor not found` if the professor does not exist.
+- Returns `409 Conflict` if the professor email or user already exists.
+- Returns `409 Conflict` if trying to delete a professor with related schedules, availability records or discipline assignments.
+- Returns `403 Not enough permissions` if the user role is not allowed.
+- Returns `401 Invalid authentication credentials` if the token is missing or invalid.
+
+---
+
+## Room endpoints
+
+### GET `/rooms`
+
+Returns the list of school rooms.
+
+Allowed roles:
+
+- admin
+- director
+- secretary
+- professor
+
+### POST `/rooms`
+
+Creates a new room.
+
+Allowed roles:
+
+- admin
+- secretary
+
+Example request:
+
+```json
+{
+  "name": "Test Room",
+  "capacity": 30,
+  "is_practice_room": false,
+  "location": "Test Building"
+}
+```
+
+Example response:
+
+```json
+{
+  "message": "Room created successfully",
+  "room_id": 4
+}
+```
+
+### PUT `/rooms/{room_id}`
+
+Updates an existing room.
+
+Allowed roles:
+
+- admin
+- secretary
+
+Example request:
+
+```json
+{
+  "name": "Updated Test Room",
+  "capacity": 35,
+  "is_practice_room": true,
+  "location": "Updated Building"
+}
+```
+
+Example response:
+
+```json
+{
+  "message": "Room updated successfully",
+  "room_id": 4
+}
+```
+
+### DELETE `/rooms/{room_id}`
+
+Deletes a room only if the room is not used in generated schedules.
+
+Allowed roles:
+
+- admin
+- secretary
+
+Example response:
+
+```json
+{
+  "message": "Room deleted successfully",
+  "room_id": 4
+}
+```
+
+Room validation:
+
+- Returns `400 Room capacity must be greater than 0` if the capacity is invalid.
+- Returns `404 Room not found` if the room does not exist.
+- Returns `409 Conflict` if trying to delete a room with generated schedules.
+- Returns `403 Not enough permissions` if the user role is not allowed.
+- Returns `401 Invalid authentication credentials` if the token is missing or invalid.
+
+---
+
 ## Attendance endpoints
 
 ### GET `/attendance`
@@ -401,31 +674,6 @@ Attendance validation:
 
 ## Academic data endpoints
 
-### GET `/professors`
-
-Returns the list of professors stored in the database.
-
-This endpoint reads data from the `professors` table.
-
-Allowed roles:
-
-- admin
-- director
-- secretary
-
-### GET `/rooms`
-
-Returns the list of school rooms.
-
-This endpoint reads data from the `rooms` table.
-
-Allowed roles:
-
-- admin
-- director
-- secretary
-- professor
-
 ### GET `/disciplines`
 
 Returns the list of disciplines or subjects.
@@ -454,75 +702,6 @@ Allowed roles:
 
 ---
 
-## Professor CRUD
-
-The API includes basic CRUD operations for professor management.
-
-### GET `/professors`
-
-Returns the list of professors.
-
-Allowed roles:
-
-- admin
-- director
-- secretary
-
-### POST `/professors`
-
-Creates a new professor.
-
-Allowed roles:
-
-- admin
-- secretary
-
-Example request:
-
-```json
-{
-  "user_id": null,
-  "full_name": "Test Professor",
-  "email": "test.professor@academia360.pt"
-}
-```
-
-### PUT `/professors/{professor_id}`
-
-Updates an existing professor.
-
-Allowed roles:
-
-- admin
-- secretary
-
-Example request:
-
-```json
-{
-  "user_id": null,
-  "full_name": "Updated Test Professor",
-  "email": "updated.professor@academia360.pt"
-}
-```
-
-### DELETE `/professors/{professor_id}`
-
-Deletes a professor only if the professor has no related schedules, availability records or discipline assignments.
-
-Allowed roles:
-
-- admin
-- secretary
-
-Validation:
-
-- Returns `404 User not found` if the assigned user does not exist.
-- Returns `404 Professor not found` if the professor does not exist.
-- Returns `409 Conflict` if the professor email or user already exists.
-- Returns `409 Conflict` if trying to delete a professor with related records.
-- Returns `403 Not enough permissions` if the user role is not allowed.
-
 ## Current status
 
 The API is working locally and has been tested with the MySQL database.
@@ -537,17 +716,22 @@ Completed:
 - Role-based endpoint protection
 - Student CRUD endpoints
 - Student creation, update and delete
+- Professor CRUD endpoints
+- Professor creation, update and delete
+- Room CRUD endpoints
+- Room creation, update and delete
 - Class validation
 - Duplicate student number/card UID validation
 - Protection against deleting students with attendance records
+- Protection against deleting professors with related records
+- Protection against deleting rooms with generated schedules
+- Environment-based configuration
 - Backend refactored into routers
 - API endpoints grouped by feature
-- Authentication, students, attendance and academic data separated into modules
+- Authentication, students, professors, rooms, attendance and academic data separated into modules
 
 ## Next steps
 
-- Add CRUD endpoints for professors
-- Add CRUD endpoints for rooms
 - Add CRUD endpoints for disciplines
 - Improve attendance registration logic
 - Add schedule management endpoints
