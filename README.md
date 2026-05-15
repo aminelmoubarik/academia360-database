@@ -1,543 +1,976 @@
-# Academia360 Database and API
+# Academia360 API
 
-Initial MySQL database model and FastAPI backend for the Academia360 project.
+Academia360 is a backend API developed with FastAPI and MySQL for managing school attendance, schedules, courses, classes, rooms, students, professors and teacher availability.
 
-Academia360 is an integrated school management platform focused on attendance registration and automatic timetable management.
+This project is part of the Academia360 Erasmus+ internship work.
 
-The project is designed to support attendance registration using NFC/RFID/QR/barcode and school schedule management using students, professors, classes, disciplines, rooms, teacher availability and school calendar data.
+---
 
-## Project objective
+## Technologies Used
 
-The objective of this first version is to design, test and document the initial database structure and create a backend API connected to MySQL.
-
-The current version supports:
-
-- Student management
-- Professor management
-- Room management
-- Classes
-- Disciplines
-- School calendar
-- Teacher availability
-- Generated schedules
-- Attendance records using NFC/RFID/QR/barcode
-- API endpoints to read data from the database
-- Attendance registration through the API
-- Basic authentication
-- JWT token generation
-- Bearer token authorization
-- Role-based endpoint protection
-- Student CRUD endpoints
-- Professor CRUD endpoints
-- Room CRUD endpoints
-- Backend structure organized into routers
-- Environment-based configuration for secrets and database settings
-
-## Technologies used
-
-- MySQL
-- XAMPP
 - Python
 - FastAPI
-- Uvicorn
+- MySQL
 - mysql-connector-python
-- passlib
-- bcrypt
+- Uvicorn
+- Pydantic
+- JWT authentication
 - python-jose
+- passlib
 - python-dotenv
-- VS Code
-- MySQL Shell for VS Code
-- GitHub
-- Plane
+- python-multipart
 
-## Repository structure
+---
+
+## Project Objective
+
+The objective of Academia360 is to provide a backend foundation for a school management platform focused on:
+
+- Student attendance registration
+- NFC/RFID/QR/barcode/manual attendance punching
+- School schedule management
+- Teacher availability management
+- Course and class management
+- Room management
+- Discipline workload configuration
+- School calendar management
+- Role-based access control
+
+---
+
+## Current Features
+
+The current backend includes:
+
+- Normalized MySQL database schema
+- Table naming convention using `Tbl_`, `Tref_` and `trx_`
+- Audit columns in all tables
+- Demo seed data
+- SQL test queries
+- CRUD routers for the main entities
+- JWT authentication
+- Role-based route protection
+- Schedule validation logic
+- Attendance registration logic
+- Swagger API documentation
+
+---
+
+## Authentication
+
+The API uses JWT authentication.
+
+Login endpoint:
+
+```text
+POST /auth/login
+```
+
+Swagger uses OAuth2. In the Swagger login form, the field is called `username`, but the API expects the user's email.
+
+Example:
+
+```text
+username: admin@academia360.local
+password: admin
+```
+
+After login, Swagger can use the generated Bearer token to access protected endpoints.
+
+---
+
+## Demo Login Users
+
+After running `create_demo_passwords.py`, these demo users can be used for testing:
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@academia360.local` | `admin` |
+| Director | `laura.mendes@academia360.local` | `director` |
+| Secretary | `rita.almeida@academia360.local` | `secretary` |
+| Professor | `miguel.ramos@academia360.local` | `professor` |
+| Professor | `ines.duarte@academia360.local` | `professor` |
+| Professor | `pedro.neves@academia360.local` | `professor` |
+
+---
+
+## Database Naming Convention
+
+The database uses prefixes to quickly identify the purpose of each table.
+
+| Prefix | Meaning | Example |
+|---|---|---|
+| `Tbl_` | Main data table | `Tbl_Students` |
+| `Tref_` | Reference table / fixed list | `Tref_UserRoles` |
+| `trx_` | Relationship table | `trx_Discipline_CourseYear` |
+
+---
+
+## Audit Columns
+
+All tables include audit columns:
+
+```sql
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
+```
+
+These fields store:
+
+- The user who inserted the record
+- The insertion date
+- The user who last modified the record
+- The last modification date
+
+---
+
+## Main Database Tables
+
+### Reference Tables
+
+```text
+Tref_UserRoles
+Tref_Gender
+Tref_SchoolYears
+```
+
+### Main Data Tables
+
+```text
+Tbl_Users
+Tbl_Courses
+Tbl_Classes
+Tbl_Students
+Tbl_Professors
+Tbl_Disciplines
+Tbl_Rooms
+Tbl_SchoolCalendar
+Tbl_TeacherAvailability
+Tbl_GeneratedSchedule
+Tbl_AttendanceRecords
+```
+
+### Relationship Tables
+
+```text
+trx_Discipline_CourseYear
+trx_Professor_DisciplineCourseYear
+```
+
+---
+
+## Important Database Design Decisions
+
+### Users and Professors
+
+Professor name and email are stored in `Tbl_Users`.
+
+`Tbl_Professors` only stores professor-specific information such as:
+
+- UserID
+- PhotoPath
+- GenderID
+- Address
+- PostalCode
+- City
+- Contact
+- DateOfBirth
+
+This avoids duplicating name and email in both `Tbl_Users` and `Tbl_Professors`.
+
+---
+
+### Courses, Classes and School Years
+
+Courses and classes are separated.
+
+A course represents the general training programme, for example:
+
+```text
+TGEI
+TGPSI
+TCIB
+```
+
+A class represents a student group inside a course and school year, for example:
+
+```text
+TGEI 1A
+TGEI 2A
+TGPSI 1A
+TCIB 2A
+```
+
+---
+
+### Disciplines and Workload
+
+Disciplines are stored as a general catalogue in `Tbl_Disciplines`.
+
+Examples:
+
+```text
+Programming
+Networks
+Databases
+Operating Systems
+Mathematics
+```
+
+The workload of a discipline is not stored directly in `Tbl_Disciplines` because it can change depending on:
+
+- Course
+- School year
+- Course year number
+
+For that reason, the table `trx_Discipline_CourseYear` stores the workload configuration.
+
+Example:
+
+```text
+Programming
+Course: TGEI
+School year: 2025/2026
+Course year number: 1
+Total minutes: 7200
+Lesson duration: 60 minutes
+Practical: true
+```
+
+---
+
+### Schedule Model
+
+The schedule table does not point directly to `Tbl_Disciplines`.
+
+Instead, `Tbl_GeneratedSchedule` points to `trx_Discipline_CourseYear`.
+
+This allows each schedule record to know the exact course, school year, course year number, workload and practical configuration of the discipline.
+
+---
+
+## Schedule Validation Rules
+
+Before creating or updating a schedule record, the backend validates:
+
+- The class exists.
+- The discipline course year record exists.
+- The professor exists.
+- The room exists.
+- The calendar date exists.
+- The calendar date is a school day.
+- The class and discipline belong to the same course.
+- The class and discipline belong to the same school year.
+- The class and discipline have the same course year number.
+- The professor is assigned to the selected discipline course year.
+- Practical disciplines are scheduled in practice rooms.
+- There are no overlapping schedule records for the class.
+- There are no overlapping schedule records for the professor.
+- There are no overlapping schedule records for the room.
+
+---
+
+## Backend Structure
 
 ```text
 backend/
 ├── app.py
 ├── auth.py
-├── create_demo_passwords.py
 ├── db.py
 ├── models.py
 ├── requirements.txt
-├── .env.example
+├── create_demo_passwords.py
+│
 └── routers/
     ├── __init__.py
-    ├── academic.py
-    ├── attendance.py
     ├── auth_routes.py
+    ├── attendance.py
+    ├── classes.py
+    ├── courses.py
+    ├── discipline_course_years.py
+    ├── disciplines.py
+    ├── genders.py
+    ├── professor_discipline_course_years.py
     ├── professors.py
+    ├── roles.py
     ├── rooms.py
-    └── students.py
+    ├── schedule.py
+    ├── school_calendar.py
+    ├── school_years.py
+    ├── students.py
+    ├── teacher_availability.py
+    └── users.py
+```
 
+---
+
+## Database Files
+
+The database files are located in the `database` folder.
+
+```text
 database/
 ├── schema.sql
 ├── seed.sql
 └── queries.sql
-
-docs/
-├── api.md
-├── database.md
-└── er-diagram.md
-
-.gitignore
-README.md
 ```
 
-## Database files
+### `schema.sql`
 
-### `database/schema.sql`
-
-Creates the `academia360` database and all main tables with their relationships.
-
-### `database/seed.sql`
-
-Inserts test data into the database.
-
-### `database/queries.sql`
-
-Contains validation queries to check that the database structure and relationships work correctly.
-
-## Backend files
-
-### `backend/app.py`
-
-Main FastAPI application.
-
-It creates the FastAPI app, defines the health endpoint and includes the different routers.
-
-### `backend/auth.py`
-
-Authentication and authorization logic.
+Creates the database structure.
 
 It includes:
 
-- Password hashing
-- Password verification
-- JWT token creation
-- Bearer token authentication
-- Role-based access control
-- Environment-based secret key configuration
+- Database creation
+- Table creation
+- Foreign keys
+- Constraints
+- Audit columns
+- Table prefixes
 
-### `backend/create_demo_passwords.py`
+### `seed.sql`
 
-Development script used to generate password hashes for demo users.
+Inserts demo data for testing.
 
-Demo users include:
+It includes:
 
-- `admin@academia360.pt`
-- `director@academia360.pt`
-- `secretary@academia360.pt`
-- `afonso@academia360.pt`
-- `joana@academia360.pt`
+- Roles
+- Genders
+- School years
+- Courses
+- Classes
+- Users
+- Professors
+- Students
+- Rooms
+- Disciplines
+- Discipline workload configurations
+- Professor assignments
+- Teacher availability
+- School calendar records
+- Generated schedules
+- Attendance records
 
-### `backend/db.py`
+### `queries.sql`
 
-Database connection file.
+Contains useful SQL queries to test and inspect the database.
 
-It connects the FastAPI backend with the local MySQL database using environment variables.
+It includes queries for:
 
-### `backend/models.py`
+- Users
+- Students
+- Professors
+- Courses
+- Classes
+- Rooms
+- Disciplines
+- Schedule records
+- Attendance records
+- Room occupation
+- Attendance summaries
+- Schedule conflicts
+- Audit fields
 
-Contains the Pydantic request models used by the API.
+---
 
-Current models include:
+## Available API Endpoints
 
-- `LoginRequest`
-- `AttendanceCreate`
-- `StudentCreate`
-- `StudentUpdate`
-- `ProfessorCreate`
-- `ProfessorUpdate`
-- `RoomCreate`
-- `RoomUpdate`
+### Health Check
 
-### `backend/routers/`
+```text
+GET /
+```
 
-Contains the API routers grouped by feature.
+### Authentication
 
-Current routers:
+```text
+POST /auth/login
+GET  /auth/me
+```
 
-- `auth_routes.py`: login and current user endpoints
-- `students.py`: student read and CRUD endpoints
-- `professors.py`: professor read and CRUD endpoints
-- `rooms.py`: room read and CRUD endpoints
-- `attendance.py`: attendance read and creation endpoints
-- `academic.py`: disciplines and schedule endpoints
+### Roles
 
-### `backend/requirements.txt`
+```text
+GET    /roles
+GET    /roles/{role_id}
+POST   /roles
+PUT    /roles/{role_id}
+DELETE /roles/{role_id}
+```
 
-Contains the Python dependencies needed to run the backend.
+### Genders
 
-### `backend/.env.example`
+```text
+GET    /genders
+GET    /genders/{gender_id}
+POST   /genders
+PUT    /genders/{gender_id}
+DELETE /genders/{gender_id}
+```
 
-Example environment configuration file.
+### School Years
 
-It shows which variables must be created locally in `backend/.env`.
+```text
+GET    /school-years
+GET    /school-years/{school_year_id}
+POST   /school-years
+PUT    /school-years/{school_year_id}
+DELETE /school-years/{school_year_id}
+```
 
-## Documentation files
+### Courses
 
-### `docs/api.md`
+```text
+GET    /courses
+GET    /courses/{course_id}
+POST   /courses
+PUT    /courses/{course_id}
+DELETE /courses/{course_id}
+```
 
-Explains how to run the API and describes the available endpoints.
+### Classes
 
-### `docs/database.md`
+```text
+GET    /classes
+GET    /classes/{class_id}
+POST   /classes
+PUT    /classes/{class_id}
+DELETE /classes/{class_id}
+```
 
-Explains the purpose of the main database tables and relationships.
+### Users
 
-### `docs/er-diagram.md`
+```text
+GET    /users
+GET    /users/{user_id}
+POST   /users
+PUT    /users/{user_id}
+DELETE /users/{user_id}
+```
 
-Contains the Entity Relationship Diagram using Mermaid.
+### Professors
 
-## Main database tables
+```text
+GET    /professors
+GET    /professors/{professor_id}
+POST   /professors
+PUT    /professors/{professor_id}
+DELETE /professors/{professor_id}
+```
 
-- `users`
-- `students`
-- `professors`
-- `classes`
-- `disciplines`
-- `professor_disciplines`
-- `rooms`
-- `school_calendar`
-- `teacher_availability`
-- `generated_schedule`
-- `attendance_records`
+### Students
 
-## Environment variables
+```text
+GET    /students
+GET    /students/{student_id}
+POST   /students
+PUT    /students/{student_id}
+DELETE /students/{student_id}
+```
 
-The backend uses environment variables for sensitive and local configuration.
+### Rooms
 
-Create a `.env` file inside the `backend/` folder using `.env.example` as reference.
+```text
+GET    /rooms
+GET    /rooms/{room_id}
+POST   /rooms
+PUT    /rooms/{room_id}
+DELETE /rooms/{room_id}
+```
+
+### Disciplines
+
+```text
+GET    /disciplines
+GET    /disciplines/{discipline_id}
+POST   /disciplines
+PUT    /disciplines/{discipline_id}
+DELETE /disciplines/{discipline_id}
+```
+
+### Discipline Course Years
+
+```text
+GET    /discipline-course-years
+GET    /discipline-course-years/{discipline_course_year_id}
+POST   /discipline-course-years
+PUT    /discipline-course-years/{discipline_course_year_id}
+DELETE /discipline-course-years/{discipline_course_year_id}
+```
+
+### Professor Discipline Course Years
+
+```text
+GET    /professor-discipline-course-years
+GET    /professor-discipline-course-years/professor/{professor_id}
+GET    /professor-discipline-course-years/discipline-course-year/{discipline_course_year_id}
+GET    /professor-discipline-course-years/{professor_id}/{discipline_course_year_id}
+POST   /professor-discipline-course-years
+DELETE /professor-discipline-course-years/{professor_id}/{discipline_course_year_id}
+```
+
+### Teacher Availability
+
+```text
+GET    /teacher-availability
+GET    /teacher-availability/{availability_id}
+GET    /teacher-availability/professor/{professor_id}
+POST   /teacher-availability
+PUT    /teacher-availability/{availability_id}
+DELETE /teacher-availability/{availability_id}
+```
+
+### School Calendar
+
+```text
+GET    /school-calendar
+GET    /school-calendar/{calendar_id}
+GET    /school-calendar/school-year/{school_year_id}
+POST   /school-calendar
+PUT    /school-calendar/{calendar_id}
+DELETE /school-calendar/{calendar_id}
+```
+
+### Schedule
+
+```text
+GET    /schedule
+GET    /schedule/{schedule_id}
+GET    /schedule/class/{class_id}
+GET    /schedule/professor/{professor_id}
+GET    /schedule/room/{room_id}
+POST   /schedule
+PUT    /schedule/{schedule_id}
+DELETE /schedule/{schedule_id}
+```
+
+### Attendance
+
+```text
+GET    /attendance
+GET    /attendance/{attendance_id}
+GET    /attendance/student/{student_id}
+GET    /attendance/schedule/{schedule_id}
+POST   /attendance
+PUT    /attendance/{attendance_id}
+DELETE /attendance/{attendance_id}
+```
+
+---
+
+## Installation
+
+### 1. Clone the repository
+
+```bash
+git clone <repository-url>
+cd <repository-folder>
+```
+
+### 2. Go to the backend folder
+
+```bash
+cd backend
+```
+
+### 3. Create a virtual environment
+
+```bash
+py -m venv .venv
+```
+
+### 4. Activate the virtual environment
+
+Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Windows CMD:
+
+```cmd
+.venv\Scripts\activate
+```
+
+### 5. Install dependencies
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+---
+
+## Environment Variables
+
+Create a `.env` file inside the `backend` folder.
 
 Example:
 
-```text
-SECRET_KEY=your-secret-key
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-DB_HOST=127.0.0.1
-DB_PORT=3306
+```env
+DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=
 DB_NAME=academia360
+DB_PORT=3306
+SECRET_KEY=academia360-dev-secret-key
 ```
 
-The `.env` file is ignored by Git and must not be uploaded to GitHub.
+There is also a `.env.example` file that can be used as a template.
 
-## How to run the database locally
+---
 
-1. Start MySQL using XAMPP.
+## Database Setup
 
-2. Open the project in VS Code.
+### 1. Start MySQL
 
-3. Connect to MySQL using MySQL Shell for VS Code.
+Start MySQL using XAMPP or your local MySQL installation.
 
-4. Execute the SQL files in this order:
+### 2. Create the database schema
+
+Import or execute:
 
 ```text
 database/schema.sql
+```
+
+### 3. Insert demo data
+
+Import or execute:
+
+```text
 database/seed.sql
+```
+
+### 4. Generate demo passwords
+
+From the `backend` folder, run:
+
+```bash
+python create_demo_passwords.py
+```
+
+This will generate passwords for the demo users.
+
+### 5. Optional: test database queries
+
+Import or execute:
+
+```text
 database/queries.sql
 ```
 
-5. Go to the backend folder:
+This file helps verify that the database structure and relationships are working correctly.
 
-```powershell
-cd backend
+---
+
+## Running the API
+
+From inside the `backend` folder, run:
+
+```bash
+python -m uvicorn app:app --reload
 ```
 
-6. Generate demo user password hashes:
+The API will be available at:
 
-```powershell
-py create_demo_passwords.py
+```text
+http://127.0.0.1:8000
 ```
 
-## How to run the backend locally
-
-1. Start MySQL using XAMPP.
-
-2. Open the project in VS Code.
-
-3. Create the local `.env` file inside `backend/`.
-
-4. Open a terminal.
-
-5. Go to the backend folder:
-
-```powershell
-cd backend
-```
-
-6. Install dependencies:
-
-```powershell
-py -m pip install -r requirements.txt
-```
-
-7. Run the API:
-
-```powershell
-py -m uvicorn app:app --reload
-```
-
-8. Open the API documentation:
+Swagger documentation will be available at:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-## Authentication
+---
 
-The API includes basic authentication using JWT tokens.
+## Swagger Login Flow
 
-Users log in with email and password using:
+1. Open Swagger:
 
 ```text
-POST /login
+http://127.0.0.1:8000/docs
 ```
 
-If the credentials are valid, the API returns an access token.
+2. Open:
 
-Protected endpoints require a Bearer token using the Swagger `Authorize` button.
+```text
+POST /auth/login
+```
 
-Current roles:
+3. Use one of the demo users.
 
-- `admin`
-- `director`
-- `secretary`
-- `professor`
+Example:
 
-## Available API endpoints
+```text
+username: admin@academia360.local
+password: admin
+```
 
-### Public endpoints
+4. Copy the generated access token or use the Swagger Authorize button.
+
+5. Test protected endpoints.
+
+---
+
+## Example Requests
+
+### Create a Course
+
+```json
+{
+  "code": "WEBDEV",
+  "name": "Web Development Technician"
+}
+```
+
+### Create a Class
+
+```json
+{
+  "name": "TGEI 1B",
+  "course_id": 1,
+  "school_year_id": 1,
+  "course_year_number": 1
+}
+```
+
+### Create a Student
+
+```json
+{
+  "full_name": "Test Student",
+  "student_number": "STU999",
+  "card_uid": "CARD999",
+  "class_id": 1,
+  "photo_path": null,
+  "gender_id": 1,
+  "address": "Rua Teste 99",
+  "postal_code": "4590-999",
+  "city": "Paços de Ferreira",
+  "contact": "929999999",
+  "date_of_birth": "2008-01-10"
+}
+```
+
+### Create a Professor
+
+```json
+{
+  "user_id": 4,
+  "photo_path": null,
+  "gender_id": 1,
+  "address": "Rua das Flores 12",
+  "postal_code": "4590-111",
+  "city": "Paços de Ferreira",
+  "contact": "910000001",
+  "date_of_birth": "1985-03-12"
+}
+```
+
+### Create a Discipline
+
+```json
+{
+  "name": "Cybersecurity",
+  "code": "CYBER"
+}
+```
+
+### Create a Discipline Course Year
+
+```json
+{
+  "discipline_id": 1,
+  "course_id": 1,
+  "school_year_id": 1,
+  "course_year_number": 1,
+  "total_minutes": 7200,
+  "lesson_duration_minutes": 60,
+  "is_practical": true
+}
+```
+
+### Assign a Professor to a Discipline Course Year
+
+```json
+{
+  "professor_id": 1,
+  "discipline_course_year_id": 1
+}
+```
+
+### Create a Room
+
+```json
+{
+  "name": "Computer Lab 3",
+  "capacity": 25,
+  "is_practice_room": true,
+  "location": "Main building - Third floor"
+}
+```
+
+### Create a School Calendar Record
+
+```json
+{
+  "school_year_id": 1,
+  "calendar_date": "2026-05-18",
+  "is_school_day": true,
+  "description": "Test school day"
+}
+```
+
+### Create Teacher Availability
+
+```json
+{
+  "professor_id": 1,
+  "school_year_id": 1,
+  "day_of_week": "monday",
+  "start_time": "09:00:00",
+  "end_time": "13:00:00"
+}
+```
+
+Allowed values for `day_of_week`:
+
+```text
+monday
+tuesday
+wednesday
+thursday
+friday
+```
+
+### Create a Schedule Record
+
+```json
+{
+  "class_id": 1,
+  "discipline_course_year_id": 1,
+  "professor_id": 1,
+  "room_id": 2,
+  "calendar_id": 2,
+  "start_time": "10:00:00",
+  "end_time": "11:00:00",
+  "status": "approved"
+}
+```
+
+Allowed values for `status`:
+
+```text
+draft
+approved
+cancelled
+```
+
+### Create an Attendance Record
+
+```json
+{
+  "student_id": 1,
+  "schedule_id": 1,
+  "punch_type": "in",
+  "punch_method": "nfc",
+  "is_synced": true
+}
+```
+
+Allowed values for `punch_type`:
+
+```text
+in
+out
+```
+
+Allowed values for `punch_method`:
+
+```text
+nfc
+rfid
+qr
+barcode
+manual
+```
+
+---
+
+## Recommended Swagger Test Order
+
+Recommended order for testing:
 
 ```text
 GET /
-POST /login
-```
-
-### Authentication endpoints
-
-```text
-GET /me
-```
-
-### Student endpoints
-
-```text
-GET /students
-POST /students
-PUT /students/{student_id}
-DELETE /students/{student_id}
-```
-
-### Professor endpoints
-
-```text
+POST /auth/login
+GET /roles
+GET /genders
+GET /school-years
+GET /courses
+GET /classes
+GET /users
 GET /professors
-POST /professors
-PUT /professors/{professor_id}
-DELETE /professors/{professor_id}
-```
-
-### Room endpoints
-
-```text
+GET /students
 GET /rooms
-POST /rooms
-PUT /rooms/{room_id}
-DELETE /rooms/{room_id}
-```
-
-### Attendance endpoints
-
-```text
-GET /attendance
-POST /attendance
-```
-
-### Academic data endpoints
-
-```text
 GET /disciplines
+GET /discipline-course-years
+GET /professor-discipline-course-years
+GET /teacher-availability
+GET /school-calendar
 GET /schedule
+GET /attendance
 ```
 
-The API returns data in JSON format.
+---
 
-## Student CRUD
+## Current Limitations
 
-The API includes basic CRUD operations for student management.
+The current version still has some limitations:
 
-### `POST /students`
+- Large list endpoints do not have pagination yet.
+- Some helper functions are duplicated across routers.
+- `UserCreate` should be improved so the frontend sends `password` instead of `password_hash`.
+- The automatic schedule generation algorithm is not implemented yet.
+- The current schedule endpoint validates manual schedule creation but does not generate complete schedules automatically.
 
-Creates a new student.
+---
 
-Allowed roles:
+## Recommended Next Steps
 
-- `admin`
-- `secretary`
+Recommended next development steps:
 
-### `PUT /students/{student_id}`
+1. Test all endpoints in Swagger.
+2. Refactor duplicated helper functions into `utils.py`.
+3. Update `UserCreate` to accept `password` instead of `password_hash`.
+4. Add pagination to large list endpoints such as `/attendance`.
+5. Update the database documentation.
+6. Update the ER diagram.
+7. Start designing the automatic schedule generation algorithm.
+8. Define hard and soft constraints for schedule generation.
 
-Updates an existing student.
+---
 
-Allowed roles:
+## Git Ignore Recommendation
 
-- `admin`
-- `secretary`
+The following files and folders should not be pushed to GitHub:
 
-### `DELETE /students/{student_id}`
+```text
+.venv/
+backend/.venv/
+.env
+backend/.env
+__pycache__/
+*.pyc
+```
 
-Deletes a student only if the student has no attendance records.
+---
 
-Allowed roles:
+## Notes
 
-- `admin`
-- `secretary`
-
-Validation included:
-
-- Returns `404 Class not found` if the class does not exist.
-- Returns `409 Conflict` if the student number or card UID already exists.
-- Returns `409 Conflict` if trying to delete a student with attendance records.
-- Returns `403 Not enough permissions` if the user role is not allowed.
-- Returns `401 Invalid authentication credentials` if the token is missing or invalid.
-
-## Professor CRUD
-
-The API includes basic CRUD operations for professor management.
-
-### `POST /professors`
-
-Creates a new professor.
-
-Allowed roles:
-
-- `admin`
-- `secretary`
-
-### `PUT /professors/{professor_id}`
-
-Updates an existing professor.
-
-Allowed roles:
-
-- `admin`
-- `secretary`
-
-### `DELETE /professors/{professor_id}`
-
-Deletes a professor only if the professor has no related schedules, availability records or discipline assignments.
-
-Allowed roles:
-
-- `admin`
-- `secretary`
-
-Validation included:
-
-- Returns `404 User not found` if the assigned user does not exist.
-- Returns `404 Professor not found` if the professor does not exist.
-- Returns `409 Conflict` if the professor email or user already exists.
-- Returns `409 Conflict` if trying to delete a professor with related records.
-- Returns `403 Not enough permissions` if the user role is not allowed.
-
-## Room CRUD
-
-The API includes basic CRUD operations for room management.
-
-### `POST /rooms`
-
-Creates a new room.
-
-Allowed roles:
-
-- `admin`
-- `secretary`
-
-### `PUT /rooms/{room_id}`
-
-Updates an existing room.
-
-Allowed roles:
-
-- `admin`
-- `secretary`
-
-### `DELETE /rooms/{room_id}`
-
-Deletes a room only if the room is not used in generated schedules.
-
-Allowed roles:
-
-- `admin`
-- `secretary`
-
-Validation included:
-
-- Returns `400 Room capacity must be greater than 0` if the capacity is invalid.
-- Returns `404 Room not found` if the room does not exist.
-- Returns `409 Conflict` if trying to delete a room with generated schedules.
-- Returns `403 Not enough permissions` if the user role is not allowed.
-
-## Backend structure
-
-The backend has been refactored into routers to keep the code organized.
-
-Current router groups:
-
-- Authentication
-- Students
-- Professors
-- Rooms
-- Attendance
-- Academic Data
-- Health
-
-This makes the project easier to maintain and prepares it for future features such as discipline CRUD, schedule management and frontend integration.
-
-## Current status
-
-The initial database model and backend API have been created and tested locally.
-
-Completed:
-
-- MySQL schema
-- Foreign key relationships
-- Test data
-- Validation queries
-- Entity Relationship Diagram
-- Database documentation
-- API documentation
-- Initial FastAPI backend
-- MySQL database connection
-- Environment-based configuration
-- Read endpoints
-- Attendance registration endpoint
-- Basic authentication
-- JWT token generation
-- Bearer token authorization
-- Role-based endpoint protection
-- Student CRUD endpoints
-- Student creation, update and delete
-- Professor CRUD endpoints
-- Professor creation, update and delete
-- Room CRUD endpoints
-- Room creation, update and delete
-- Class validation when creating or updating students
-- Duplicate student number/card UID validation
-- Protection against deleting students with attendance records
-- Protection against deleting professors with related records
-- Protection against deleting rooms with generated schedules
-- Backend refactored into routers
-- API endpoints grouped by feature
-
-## Next steps
-
-- Add CRUD endpoints for disciplines
-- Improve attendance registration logic
-- Add schedule management endpoints
-- Prepare the backend for future Flutter integration
-- Add frontend/mobile interface
-- Add reporting and dashboard features
+This backend is currently focused on creating a solid database and API foundation before developing the frontend and the automatic schedule generation algorithm.

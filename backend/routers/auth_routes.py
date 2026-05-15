@@ -1,54 +1,46 @@
-from fastapi import APIRouter, HTTPException, Depends
+from datetime import timedelta
 
-from auth import (
-    verify_password,
-    create_access_token,
-    get_user_by_email,
-    get_current_user
-)
-from models import LoginRequest
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 
+from auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from models import TokenResponse
 
-router = APIRouter(tags=["Authentication"])
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/login")
-def login(credentials: LoginRequest):
-    user = get_user_by_email(credentials.email)
+@router.post("/login", response_model=TokenResponse)
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = authenticate_user(
+        email=form_data.username,
+        password=form_data.password
+    )
 
     if user is None:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    if user["password_hash"] is None:
-        raise HTTPException(status_code=401, detail="User password is not configured")
-
-    if not verify_password(credentials.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
     access_token = create_access_token(
         data={
             "sub": user["email"],
             "role": user["role"]
-        }
+        },
+        expires_delta=access_token_expires
     )
 
     return {
         "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user["id"],
-            "full_name": user["full_name"],
-            "email": user["email"],
-            "role": user["role"]
-        }
+        "token_type": "bearer"
     }
 
 
 @router.get("/me")
-def get_me(current_user=Depends(get_current_user)):
+def get_me():
     return {
-        "id": current_user["id"],
-        "full_name": current_user["full_name"],
-        "email": current_user["email"],
-        "role": current_user["role"]
+        "message": "Use the Authorize button with your token to access protected routes"
     }

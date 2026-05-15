@@ -1,262 +1,90 @@
-ç# Academia360 API Documentation
+# Academia360 API Documentation
 
-This document describes the FastAPI backend created for the Academia360 project.
+This document describes the main API endpoints available in the Academia360 backend.
 
-The API connects to the local MySQL database `academia360` and exposes endpoints to read, create, update and delete data from the system.
+Base URL during local development:
 
-The backend has been organized into routers to keep the code cleaner and easier to maintain.
+```text
+http://127.0.0.1:8000
+```
 
-## Technologies
+Swagger documentation:
 
-- Python
-- FastAPI
-- Uvicorn
-- MySQL
-- mysql-connector-python
-- XAMPP
-- passlib
-- bcrypt
-- python-jose
-- python-dotenv
+```text
+http://127.0.0.1:8000/docs
+```
 
-## How to run the API locally
+---
 
-1. Start MySQL using XAMPP.
+## 1. Authentication
 
-2. Open the project in VS Code.
+The API uses JWT authentication with role-based access control.
 
-3. Create the local `.env` file inside the `backend/` folder using `.env.example` as reference.
+Login is handled with:
 
-4. Open a terminal.
+```text
+POST /auth/login
+```
 
-5. Go to the backend folder:
-
-   `cd backend`
-
-6. Install dependencies:
-
-   `py -m pip install -r requirements.txt`
-
-7. Run the API:
-
-   `py -m uvicorn app:app --reload`
-
-8. Open the API documentation:
-
-   `http://127.0.0.1:8000/docs`
-
-## Environment variables
-
-The backend uses environment variables for sensitive and local configuration.
-
-The `.env` file must be created inside the `backend/` folder.
+Swagger uses OAuth2. In the Swagger login form, the field is called `username`, but the backend expects the user's email.
 
 Example:
 
 ```text
-SECRET_KEY=your-secret-key
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=
-DB_NAME=academia360
+username: admin@academia360.local
+password: admin
 ```
 
-The `.env` file is ignored by Git and must not be uploaded to GitHub.
+After login, the API returns a JWT access token.
 
-## Backend structure
+Example response:
 
-The backend is organized into separate routers.
-
-Current router groups:
-
-- Authentication
-- Students
-- Professors
-- Rooms
-- Attendance
-- Academic Data
-- Health
-
-Current backend structure:
-
-```text
-backend/
-├── app.py
-├── auth.py
-├── create_demo_passwords.py
-├── db.py
-├── models.py
-├── requirements.txt
-├── .env.example
-└── routers/
-    ├── __init__.py
-    ├── academic.py
-    ├── attendance.py
-    ├── auth_routes.py
-    ├── professors.py
-    ├── rooms.py
-    └── students.py
+```json
+{
+  "access_token": "jwt-token",
+  "token_type": "bearer"
+}
 ```
 
-### `app.py`
-
-Main FastAPI application.
-
-It creates the API, defines the health endpoint and includes the routers.
-
-### `auth.py`
-
-Contains authentication and authorization logic:
-
-- Password hashing
-- Password verification
-- JWT token creation
-- Bearer token authentication
-- Role-based access control
-- Environment-based secret key configuration
-
-### `db.py`
-
-Contains the MySQL connection logic.
-
-The database configuration is loaded from environment variables.
-
-### `models.py`
-
-Contains the Pydantic request models used by the API.
-
-Current models:
-
-- `LoginRequest`
-- `AttendanceCreate`
-- `StudentCreate`
-- `StudentUpdate`
-- `ProfessorCreate`
-- `ProfessorUpdate`
-- `RoomCreate`
-- `RoomUpdate`
-
-### `routers/auth_routes.py`
-
-Contains authentication endpoints:
-
-- `POST /login`
-- `GET /me`
-
-### `routers/students.py`
-
-Contains student endpoints:
-
-- `GET /students`
-- `POST /students`
-- `PUT /students/{student_id}`
-- `DELETE /students/{student_id}`
-
-### `routers/professors.py`
-
-Contains professor endpoints:
-
-- `GET /professors`
-- `POST /professors`
-- `PUT /professors/{professor_id}`
-- `DELETE /professors/{professor_id}`
-
-### `routers/rooms.py`
-
-Contains room endpoints:
-
-- `GET /rooms`
-- `POST /rooms`
-- `PUT /rooms/{room_id}`
-- `DELETE /rooms/{room_id}`
-
-### `routers/attendance.py`
-
-Contains attendance endpoints:
-
-- `GET /attendance`
-- `POST /attendance`
-
-### `routers/academic.py`
-
-Contains academic data endpoints:
-
-- `GET /disciplines`
-- `GET /schedule`
-
-## Authentication
-
-The API includes basic authentication using JWT tokens.
-
-Users log in with email and password using:
-
-```text
-POST /login
-```
-
-If the credentials are valid, the API returns an access token.
-
-Protected endpoints require a Bearer token using the Swagger `Authorize` button.
-
-Current roles:
-
-- admin
-- director
-- secretary
-- professor
-
-## Available endpoints
-
-### Public endpoints
-
-```text
-GET /
-POST /login
-```
-
-### Protected endpoints
-
-```text
-GET /me
-
-GET /students
-POST /students
-PUT /students/{student_id}
-DELETE /students/{student_id}
-
-GET /professors
-POST /professors
-PUT /professors/{professor_id}
-DELETE /professors/{professor_id}
-
-GET /rooms
-POST /rooms
-PUT /rooms/{room_id}
-DELETE /rooms/{room_id}
-
-GET /disciplines
-GET /schedule
-
-GET /attendance
-POST /attendance
-```
-
-The API returns data in JSON format.
+The token can be used in Swagger through the **Authorize** button.
 
 ---
 
-## Health endpoint
+## 2. Demo Login Users
+
+After running:
+
+```bash
+python create_demo_passwords.py
+```
+
+these demo users can be used for testing:
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@academia360.local` | `admin` |
+| Director | `laura.mendes@academia360.local` | `director` |
+| Secretary | `rita.almeida@academia360.local` | `secretary` |
+| Professor | `miguel.ramos@academia360.local` | `professor` |
+| Professor | `ines.duarte@academia360.local` | `professor` |
+| Professor | `pedro.neves@academia360.local` | `professor` |
+
+Recommended first login for testing:
+
+```text
+username: admin@academia360.local
+password: admin
+```
+
+---
+
+## 3. Health Check
 
 ### GET `/`
 
 Checks if the API is running.
 
-This endpoint does not access the database. It only confirms that the FastAPI server is working.
-
-Example response:
+Response:
 
 ```json
 {
@@ -266,473 +94,1701 @@ Example response:
 
 ---
 
-## Authentication endpoints
+## 4. Authentication Endpoints
 
-### POST `/login`
+---
 
-Authenticates a user with email and password and returns an access token.
+### POST `/auth/login`
 
-Example request:
+Authenticates a user and returns a JWT token.
 
-```json
-{
-  "email": "admin@academia360.pt",
-  "password": "admin123"
-}
+Request type:
+
+```text
+Form Data
 ```
 
-Example response:
+Fields:
+
+```text
+username: user email
+password: user password
+```
+
+Example:
+
+```text
+username: admin@academia360.local
+password: admin
+```
+
+Response:
 
 ```json
 {
-  "access_token": "token",
+  "access_token": "jwt-token",
   "token_type": "bearer"
 }
 ```
 
-### GET `/me`
+---
 
-Returns the currently authenticated user.
+### GET `/auth/me`
 
-Allowed roles:
+Basic authentication-related endpoint.
 
-- admin
-- director
-- secretary
-- professor
-
-Example response:
+Current response:
 
 ```json
 {
-  "id": 1,
-  "full_name": "Admin User",
-  "email": "admin@academia360.pt",
-  "role": "admin"
+  "message": "Use the Authorize button with your token to access protected routes"
 }
 ```
 
 ---
 
-## Student endpoints
+## 5. Roles
+
+Roles are stored in:
+
+```text
+Tref_UserRoles
+```
+
+Available default roles:
+
+```text
+admin
+director
+secretary
+professor
+```
+
+---
+
+### GET `/roles`
+
+Returns all roles.
+
+Example response:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "admin",
+    "insert_username": "seed",
+    "insert_date": "2026-05-15T10:00:00",
+    "change_username": null,
+    "change_date": null
+  }
+]
+```
+
+---
+
+### GET `/roles/{role_id}`
+
+Returns one role by ID.
+
+Example:
+
+```text
+GET /roles/1
+```
+
+---
+
+### POST `/roles`
+
+Creates a new role.
+
+Request:
+
+```json
+{
+  "name": "coordinator"
+}
+```
+
+---
+
+### PUT `/roles/{role_id}`
+
+Updates an existing role.
+
+Request:
+
+```json
+{
+  "name": "academic_coordinator"
+}
+```
+
+---
+
+### DELETE `/roles/{role_id}`
+
+Deletes a role.
+
+A role cannot be deleted if it is being used by users.
+
+---
+
+## 6. Genders
+
+Genders are stored in:
+
+```text
+Tref_Gender
+```
+
+Default values:
+
+```text
+Male
+Female
+Other
+```
+
+---
+
+### GET `/genders`
+
+Returns all genders.
+
+---
+
+### GET `/genders/{gender_id}`
+
+Returns one gender by ID.
+
+Example:
+
+```text
+GET /genders/1
+```
+
+---
+
+### POST `/genders`
+
+Creates a new gender value.
+
+Request:
+
+```json
+{
+  "name": "Male"
+}
+```
+
+---
+
+### PUT `/genders/{gender_id}`
+
+Updates a gender value.
+
+Request:
+
+```json
+{
+  "name": "Female"
+}
+```
+
+---
+
+### DELETE `/genders/{gender_id}`
+
+Deletes a gender value.
+
+A gender cannot be deleted if it is being used by students or professors.
+
+---
+
+## 7. School Years
+
+School years are stored in:
+
+```text
+Tref_SchoolYears
+```
+
+---
+
+### GET `/school-years`
+
+Returns all school years.
+
+---
+
+### GET `/school-years/{school_year_id}`
+
+Returns one school year by ID.
+
+Example:
+
+```text
+GET /school-years/1
+```
+
+---
+
+### POST `/school-years`
+
+Creates a new school year.
+
+Request:
+
+```json
+{
+  "name": "2027/2028",
+  "start_date": "2027-09-01",
+  "end_date": "2028-07-31"
+}
+```
+
+Validation:
+
+```text
+end_date must be greater than start_date
+```
+
+---
+
+### PUT `/school-years/{school_year_id}`
+
+Updates a school year.
+
+Request:
+
+```json
+{
+  "name": "2027/2028",
+  "start_date": "2027-09-01",
+  "end_date": "2028-07-31"
+}
+```
+
+---
+
+### DELETE `/school-years/{school_year_id}`
+
+Deletes a school year.
+
+A school year cannot be deleted if it is being used by classes, calendar records, teacher availability or discipline configurations.
+
+---
+
+## 8. Courses
+
+Courses are stored in:
+
+```text
+Tbl_Courses
+```
+
+Examples:
+
+```text
+TGEI
+TGPSI
+TCIB
+```
+
+---
+
+### GET `/courses`
+
+Returns all courses.
+
+Example response:
+
+```json
+[
+  {
+    "id": 1,
+    "code": "TGEI",
+    "name": "Técnico de Gestão de Equipamentos Informáticos"
+  }
+]
+```
+
+---
+
+### GET `/courses/{course_id}`
+
+Returns one course by ID.
+
+Example:
+
+```text
+GET /courses/1
+```
+
+---
+
+### POST `/courses`
+
+Creates a new course.
+
+Request:
+
+```json
+{
+  "code": "WEBDEV",
+  "name": "Web Development Technician"
+}
+```
+
+---
+
+### PUT `/courses/{course_id}`
+
+Updates a course.
+
+Request:
+
+```json
+{
+  "code": "WEBDEV",
+  "name": "Web Development Technician Updated"
+}
+```
+
+---
+
+### DELETE `/courses/{course_id}`
+
+Deletes a course.
+
+A course cannot be deleted if it is being used by classes or discipline-course-year records.
+
+---
+
+## 9. Classes
+
+Classes are stored in:
+
+```text
+Tbl_Classes
+```
+
+A class represents a specific student group inside a course and school year.
+
+---
+
+### GET `/classes`
+
+Returns all classes with course and school year information.
+
+---
+
+### GET `/classes/{class_id}`
+
+Returns one class by ID.
+
+Example:
+
+```text
+GET /classes/1
+```
+
+---
+
+### POST `/classes`
+
+Creates a new class.
+
+Request:
+
+```json
+{
+  "name": "TGEI 1B",
+  "course_id": 1,
+  "school_year_id": 1,
+  "course_year_number": 1
+}
+```
+
+Validation:
+
+```text
+course_year_number must be greater than 0
+```
+
+---
+
+### PUT `/classes/{class_id}`
+
+Updates a class.
+
+Request:
+
+```json
+{
+  "name": "TGEI 1B",
+  "course_id": 1,
+  "school_year_id": 1,
+  "course_year_number": 1
+}
+```
+
+---
+
+### DELETE `/classes/{class_id}`
+
+Deletes a class.
+
+A class cannot be deleted if it is being used by students or schedule records.
+
+---
+
+## 10. Users
+
+Users are stored in:
+
+```text
+Tbl_Users
+```
+
+Users are linked to roles through:
+
+```text
+Tref_UserRoles
+```
+
+---
+
+### GET `/users`
+
+Returns all users with their roles.
+
+Example response:
+
+```json
+[
+  {
+    "id": 1,
+    "full_name": "System Administrator",
+    "email": "admin@academia360.local",
+    "role_id": 1,
+    "role": "admin"
+  }
+]
+```
+
+---
+
+### GET `/users/{user_id}`
+
+Returns one user by ID.
+
+Example:
+
+```text
+GET /users/1
+```
+
+---
+
+### POST `/users`
+
+Creates a new user.
+
+Current request format:
+
+```json
+{
+  "full_name": "Test User",
+  "email": "test.user@academia360.local",
+  "password_hash": null,
+  "role_id": 3
+}
+```
+
+Important note:
+
+This endpoint should be improved later so the frontend sends `password` instead of `password_hash`.
+
+Recommended future format:
+
+```json
+{
+  "full_name": "Test User",
+  "email": "test.user@academia360.local",
+  "password": "test123",
+  "role_id": 3
+}
+```
+
+The backend should hash the password before saving it.
+
+---
+
+### PUT `/users/{user_id}`
+
+Updates a user.
+
+Request:
+
+```json
+{
+  "full_name": "Test User Updated",
+  "email": "test.user.updated@academia360.local",
+  "role_id": 4
+}
+```
+
+---
+
+### DELETE `/users/{user_id}`
+
+Deletes a user.
+
+A user cannot be deleted if it is being used by a professor record.
+
+---
+
+## 11. Professors
+
+Professors are stored in:
+
+```text
+Tbl_Professors
+```
+
+Professor name and email come from:
+
+```text
+Tbl_Users
+```
+
+---
+
+### GET `/professors`
+
+Returns all professors with user information.
+
+---
+
+### GET `/professors/{professor_id}`
+
+Returns one professor by ID.
+
+Example:
+
+```text
+GET /professors/1
+```
+
+---
+
+### POST `/professors`
+
+Creates a professor linked to an existing user.
+
+Request:
+
+```json
+{
+  "user_id": 4,
+  "photo_path": null,
+  "gender_id": 1,
+  "address": "Rua das Flores 12",
+  "postal_code": "4590-111",
+  "city": "Paços de Ferreira",
+  "contact": "910000001",
+  "date_of_birth": "1985-03-12"
+}
+```
+
+Important:
+
+The selected `user_id` should belong to a user with the `professor` role.
+
+---
+
+### PUT `/professors/{professor_id}`
+
+Updates a professor.
+
+Request:
+
+```json
+{
+  "photo_path": null,
+  "gender_id": 1,
+  "address": "Rua Nova 20",
+  "postal_code": "4590-111",
+  "city": "Paços de Ferreira",
+  "contact": "910000001",
+  "date_of_birth": "1985-03-12"
+}
+```
+
+---
+
+### DELETE `/professors/{professor_id}`
+
+Deletes a professor.
+
+A professor cannot be deleted if used by schedules, teacher availability or discipline assignments.
+
+---
+
+## 12. Students
+
+Students are stored in:
+
+```text
+Tbl_Students
+```
+
+Students are linked to classes through:
+
+```text
+ClassID
+```
+
+---
 
 ### GET `/students`
 
-Returns the list of students stored in the database.
+Returns all students with class, course, school year and gender information.
 
-This endpoint reads data from the `students` table and joins it with the `classes` table to show the class name and course name of each student.
+---
 
-Allowed roles:
+### GET `/students/{student_id}`
 
-- admin
-- director
-- secretary
+Returns one student by ID.
+
+Example:
+
+```text
+GET /students/1
+```
+
+---
 
 ### POST `/students`
 
-Creates a new student.
+Creates a student.
 
-Allowed roles:
-
-- admin
-- secretary
-
-Example request:
+Request:
 
 ```json
 {
   "full_name": "Test Student",
-  "student_number": "STU010",
-  "card_uid": "CARD010",
-  "class_id": 1
+  "student_number": "STU999",
+  "card_uid": "CARD999",
+  "class_id": 1,
+  "photo_path": null,
+  "gender_id": 1,
+  "address": "Rua Teste 99",
+  "postal_code": "4590-999",
+  "city": "Paços de Ferreira",
+  "contact": "929999999",
+  "date_of_birth": "2008-01-10"
 }
 ```
 
-Example response:
+Important fields:
 
-```json
-{
-  "message": "Student created successfully",
-  "student_id": 4
-}
+```text
+student_number must be unique
+card_uid must be unique
 ```
+
+---
 
 ### PUT `/students/{student_id}`
 
-Updates an existing student.
+Updates a student.
 
-Allowed roles:
-
-- admin
-- secretary
-
-Example request:
+Request:
 
 ```json
 {
-  "full_name": "Updated Test Student",
-  "student_number": "STU010",
-  "card_uid": "CARD010",
-  "class_id": 1
+  "full_name": "Test Student Updated",
+  "student_number": "STU999",
+  "card_uid": "CARD999",
+  "class_id": 1,
+  "gender_id": 1,
+  "city": "Paços de Ferreira"
 }
 ```
 
-Example response:
-
-```json
-{
-  "message": "Student updated successfully",
-  "student_id": 4
-}
-```
+---
 
 ### DELETE `/students/{student_id}`
 
-Deletes a student only if the student has no attendance records.
+Deletes a student.
 
-Allowed roles:
-
-- admin
-- secretary
-
-Example response:
-
-```json
-{
-  "message": "Student deleted successfully",
-  "student_id": 4
-}
-```
-
-Student validation:
-
-- Returns `404 Class not found` if the class does not exist.
-- Returns `409 Conflict` if the student number or card UID already exists.
-- Returns `409 Conflict` if trying to delete a student with attendance records.
-- Returns `403 Not enough permissions` if the user role is not allowed.
-- Returns `401 Invalid authentication credentials` if the token is missing or invalid.
+A student cannot be deleted if used by attendance records.
 
 ---
 
-## Professor endpoints
+## 13. Rooms
 
-### GET `/professors`
+Rooms are stored in:
 
-Returns the list of professors stored in the database.
-
-Allowed roles:
-
-- admin
-- director
-- secretary
-
-### POST `/professors`
-
-Creates a new professor.
-
-Allowed roles:
-
-- admin
-- secretary
-
-Example request:
-
-```json
-{
-  "user_id": null,
-  "full_name": "Test Professor",
-  "email": "test.professor@academia360.pt"
-}
+```text
+Tbl_Rooms
 ```
-
-Example response:
-
-```json
-{
-  "message": "Professor created successfully",
-  "professor_id": 3
-}
-```
-
-### PUT `/professors/{professor_id}`
-
-Updates an existing professor.
-
-Allowed roles:
-
-- admin
-- secretary
-
-Example request:
-
-```json
-{
-  "user_id": null,
-  "full_name": "Updated Test Professor",
-  "email": "updated.professor@academia360.pt"
-}
-```
-
-Example response:
-
-```json
-{
-  "message": "Professor updated successfully",
-  "professor_id": 3
-}
-```
-
-### DELETE `/professors/{professor_id}`
-
-Deletes a professor only if the professor has no related schedules, availability records or discipline assignments.
-
-Allowed roles:
-
-- admin
-- secretary
-
-Example response:
-
-```json
-{
-  "message": "Professor deleted successfully",
-  "professor_id": 3
-}
-```
-
-Professor validation:
-
-- Returns `404 User not found` if the assigned user does not exist.
-- Returns `404 Professor not found` if the professor does not exist.
-- Returns `409 Conflict` if the professor email or user already exists.
-- Returns `409 Conflict` if trying to delete a professor with related schedules, availability records or discipline assignments.
-- Returns `403 Not enough permissions` if the user role is not allowed.
-- Returns `401 Invalid authentication credentials` if the token is missing or invalid.
 
 ---
-
-## Room endpoints
 
 ### GET `/rooms`
 
-Returns the list of school rooms.
-
-Allowed roles:
-
-- admin
-- director
-- secretary
-- professor
-
-### POST `/rooms`
-
-Creates a new room.
-
-Allowed roles:
-
-- admin
-- secretary
-
-Example request:
-
-```json
-{
-  "name": "Test Room",
-  "capacity": 30,
-  "is_practice_room": false,
-  "location": "Test Building"
-}
-```
-
-Example response:
-
-```json
-{
-  "message": "Room created successfully",
-  "room_id": 4
-}
-```
-
-### PUT `/rooms/{room_id}`
-
-Updates an existing room.
-
-Allowed roles:
-
-- admin
-- secretary
-
-Example request:
-
-```json
-{
-  "name": "Updated Test Room",
-  "capacity": 35,
-  "is_practice_room": true,
-  "location": "Updated Building"
-}
-```
-
-Example response:
-
-```json
-{
-  "message": "Room updated successfully",
-  "room_id": 4
-}
-```
-
-### DELETE `/rooms/{room_id}`
-
-Deletes a room only if the room is not used in generated schedules.
-
-Allowed roles:
-
-- admin
-- secretary
-
-Example response:
-
-```json
-{
-  "message": "Room deleted successfully",
-  "room_id": 4
-}
-```
-
-Room validation:
-
-- Returns `400 Room capacity must be greater than 0` if the capacity is invalid.
-- Returns `404 Room not found` if the room does not exist.
-- Returns `409 Conflict` if trying to delete a room with generated schedules.
-- Returns `403 Not enough permissions` if the user role is not allowed.
-- Returns `401 Invalid authentication credentials` if the token is missing or invalid.
+Returns all rooms.
 
 ---
 
-## Attendance endpoints
+### GET `/rooms/{room_id}`
+
+Returns one room by ID.
+
+Example:
+
+```text
+GET /rooms/1
+```
+
+---
+
+### POST `/rooms`
+
+Creates a room.
+
+Request:
+
+```json
+{
+  "name": "Computer Lab 3",
+  "capacity": 25,
+  "is_practice_room": true,
+  "location": "Main building - Third floor"
+}
+```
+
+Validation:
+
+```text
+capacity must be null or greater than 0
+```
+
+---
+
+### PUT `/rooms/{room_id}`
+
+Updates a room.
+
+Request:
+
+```json
+{
+  "name": "Computer Lab 3",
+  "capacity": 30,
+  "is_practice_room": true,
+  "location": "Main building - Third floor"
+}
+```
+
+---
+
+### DELETE `/rooms/{room_id}`
+
+Deletes a room.
+
+A room cannot be deleted if used by schedule records.
+
+---
+
+## 14. Disciplines
+
+Disciplines are stored in:
+
+```text
+Tbl_Disciplines
+```
+
+This table stores only the general discipline catalogue.
+
+---
+
+### GET `/disciplines`
+
+Returns all disciplines.
+
+---
+
+### GET `/disciplines/{discipline_id}`
+
+Returns one discipline by ID.
+
+Example:
+
+```text
+GET /disciplines/1
+```
+
+---
+
+### POST `/disciplines`
+
+Creates a discipline.
+
+Request:
+
+```json
+{
+  "name": "Cybersecurity",
+  "code": "CYBER"
+}
+```
+
+Important:
+
+This endpoint does not store total hours, lesson duration or practical flag.
+
+That information is stored in:
+
+```text
+/discipline-course-years
+```
+
+---
+
+### PUT `/disciplines/{discipline_id}`
+
+Updates a discipline.
+
+Request:
+
+```json
+{
+  "name": "Cybersecurity",
+  "code": "CYBER"
+}
+```
+
+---
+
+### DELETE `/disciplines/{discipline_id}`
+
+Deletes a discipline.
+
+A discipline cannot be deleted if used by discipline-course-year records.
+
+---
+
+## 15. Discipline Course Years
+
+Discipline course years are stored in:
+
+```text
+trx_Discipline_CourseYear
+```
+
+This table stores the workload of a discipline for a specific course and school year.
+
+---
+
+### GET `/discipline-course-years`
+
+Returns all discipline-course-year records.
+
+---
+
+### GET `/discipline-course-years/{discipline_course_year_id}`
+
+Returns one discipline-course-year record by ID.
+
+Example:
+
+```text
+GET /discipline-course-years/1
+```
+
+---
+
+### POST `/discipline-course-years`
+
+Creates a discipline workload configuration.
+
+Request:
+
+```json
+{
+  "discipline_id": 1,
+  "course_id": 1,
+  "school_year_id": 1,
+  "course_year_number": 1,
+  "total_minutes": 7200,
+  "lesson_duration_minutes": 60,
+  "is_practical": true
+}
+```
+
+Validation:
+
+```text
+course_year_number must be greater than 0
+total_minutes must be greater than 0
+lesson_duration_minutes must be greater than 0
+```
+
+---
+
+### PUT `/discipline-course-years/{discipline_course_year_id}`
+
+Updates a discipline workload configuration.
+
+Request:
+
+```json
+{
+  "total_minutes": 8000,
+  "lesson_duration_minutes": 60,
+  "is_practical": true
+}
+```
+
+---
+
+### DELETE `/discipline-course-years/{discipline_course_year_id}`
+
+Deletes a discipline-course-year record.
+
+It cannot be deleted if it is used by schedules or professor assignments.
+
+---
+
+## 16. Professor Discipline Course Years
+
+Professor assignments are stored in:
+
+```text
+trx_Professor_DisciplineCourseYear
+```
+
+This table assigns professors to specific discipline-course-year configurations.
+
+---
+
+### GET `/professor-discipline-course-years`
+
+Returns all professor assignments.
+
+---
+
+### GET `/professor-discipline-course-years/professor/{professor_id}`
+
+Returns all discipline-course-year records assigned to one professor.
+
+Example:
+
+```text
+GET /professor-discipline-course-years/professor/1
+```
+
+---
+
+### GET `/professor-discipline-course-years/discipline-course-year/{discipline_course_year_id}`
+
+Returns all professors assigned to one discipline-course-year record.
+
+Example:
+
+```text
+GET /professor-discipline-course-years/discipline-course-year/1
+```
+
+---
+
+### GET `/professor-discipline-course-years/{professor_id}/{discipline_course_year_id}`
+
+Returns one professor assignment.
+
+Example:
+
+```text
+GET /professor-discipline-course-years/1/1
+```
+
+---
+
+### POST `/professor-discipline-course-years`
+
+Assigns a professor to a discipline-course-year record.
+
+Request:
+
+```json
+{
+  "professor_id": 1,
+  "discipline_course_year_id": 1
+}
+```
+
+---
+
+### DELETE `/professor-discipline-course-years/{professor_id}/{discipline_course_year_id}`
+
+Deletes a professor assignment.
+
+Example:
+
+```text
+DELETE /professor-discipline-course-years/1/1
+```
+
+---
+
+## 17. Teacher Availability
+
+Teacher availability records are stored in:
+
+```text
+Tbl_TeacherAvailability
+```
+
+---
+
+### GET `/teacher-availability`
+
+Returns all teacher availability records.
+
+---
+
+### GET `/teacher-availability/{availability_id}`
+
+Returns one teacher availability record by ID.
+
+Example:
+
+```text
+GET /teacher-availability/1
+```
+
+---
+
+### GET `/teacher-availability/professor/{professor_id}`
+
+Returns availability records for one professor.
+
+Example:
+
+```text
+GET /teacher-availability/professor/1
+```
+
+---
+
+### POST `/teacher-availability`
+
+Creates a teacher availability record.
+
+Request:
+
+```json
+{
+  "professor_id": 1,
+  "school_year_id": 1,
+  "day_of_week": "monday",
+  "start_time": "09:00:00",
+  "end_time": "13:00:00"
+}
+```
+
+Allowed `day_of_week` values:
+
+```text
+monday
+tuesday
+wednesday
+thursday
+friday
+```
+
+Validation:
+
+```text
+end_time must be greater than start_time
+```
+
+---
+
+### PUT `/teacher-availability/{availability_id}`
+
+Updates a teacher availability record.
+
+Request:
+
+```json
+{
+  "day_of_week": "tuesday",
+  "start_time": "10:00:00",
+  "end_time": "14:00:00"
+}
+```
+
+---
+
+### DELETE `/teacher-availability/{availability_id}`
+
+Deletes a teacher availability record.
+
+---
+
+## 18. School Calendar
+
+School calendar records are stored in:
+
+```text
+Tbl_SchoolCalendar
+```
+
+---
+
+### GET `/school-calendar`
+
+Returns all school calendar records.
+
+---
+
+### GET `/school-calendar/{calendar_id}`
+
+Returns one calendar record by ID.
+
+Example:
+
+```text
+GET /school-calendar/1
+```
+
+---
+
+### GET `/school-calendar/school-year/{school_year_id}`
+
+Returns calendar records for one school year.
+
+Example:
+
+```text
+GET /school-calendar/school-year/1
+```
+
+---
+
+### POST `/school-calendar`
+
+Creates a school calendar record.
+
+Request:
+
+```json
+{
+  "school_year_id": 1,
+  "calendar_date": "2026-05-18",
+  "is_school_day": true,
+  "description": "Test school day"
+}
+```
+
+---
+
+### PUT `/school-calendar/{calendar_id}`
+
+Updates a school calendar record.
+
+Request:
+
+```json
+{
+  "is_school_day": false,
+  "description": "Holiday"
+}
+```
+
+---
+
+### DELETE `/school-calendar/{calendar_id}`
+
+Deletes a calendar record.
+
+A calendar record cannot be deleted if used by schedule records.
+
+---
+
+## 19. Schedule
+
+Schedule records are stored in:
+
+```text
+Tbl_GeneratedSchedule
+```
+
+The schedule uses:
+
+```text
+DisciplineCourseYearID
+```
+
+instead of:
+
+```text
+DisciplineID
+```
+
+This makes the schedule more precise.
+
+---
+
+### GET `/schedule`
+
+Returns all schedule records.
+
+---
+
+### GET `/schedule/{schedule_id}`
+
+Returns one schedule record by ID.
+
+Example:
+
+```text
+GET /schedule/1
+```
+
+---
+
+### GET `/schedule/class/{class_id}`
+
+Returns schedule records for one class.
+
+Example:
+
+```text
+GET /schedule/class/1
+```
+
+---
+
+### GET `/schedule/professor/{professor_id}`
+
+Returns schedule records for one professor.
+
+Example:
+
+```text
+GET /schedule/professor/1
+```
+
+---
+
+### GET `/schedule/room/{room_id}`
+
+Returns schedule records for one room.
+
+Example:
+
+```text
+GET /schedule/room/2
+```
+
+---
+
+### POST `/schedule`
+
+Creates a schedule record.
+
+Request:
+
+```json
+{
+  "class_id": 1,
+  "discipline_course_year_id": 1,
+  "professor_id": 1,
+  "room_id": 2,
+  "calendar_id": 2,
+  "start_time": "10:00:00",
+  "end_time": "11:00:00",
+  "status": "approved"
+}
+```
+
+Allowed `status` values:
+
+```text
+draft
+approved
+cancelled
+```
+
+Schedule validation rules:
+
+- The class must exist.
+- The discipline course year record must exist.
+- The professor must exist.
+- The room must exist.
+- The calendar date must exist.
+- The calendar date must be a school day.
+- The class course must match the discipline course.
+- The class school year must match the discipline school year.
+- The class course year number must match the discipline course year number.
+- The professor must be assigned to the selected discipline course year.
+- Practical disciplines must be scheduled in practice rooms.
+- A class cannot have overlapping lessons.
+- A professor cannot have overlapping lessons.
+- A room cannot have overlapping lessons.
+
+---
+
+### PUT `/schedule/{schedule_id}`
+
+Updates a schedule record.
+
+Request:
+
+```json
+{
+  "room_id": 3,
+  "start_time": "11:00:00",
+  "end_time": "12:00:00",
+  "status": "approved"
+}
+```
+
+The same schedule validations are applied when updating.
+
+---
+
+### DELETE `/schedule/{schedule_id}`
+
+Deletes a schedule record.
+
+A schedule record cannot be deleted if used by attendance records.
+
+---
+
+## 20. Attendance
+
+Attendance records are stored in:
+
+```text
+Tbl_AttendanceRecords
+```
+
+---
 
 ### GET `/attendance`
 
-Returns the attendance records.
+Returns all attendance records.
 
-This endpoint reads data from the `attendance_records` table and joins it with the `students` table.
+---
 
-Allowed roles:
+### GET `/attendance/{attendance_id}`
 
-- admin
-- director
-- secretary
-- professor
+Returns one attendance record by ID.
+
+Example:
+
+```text
+GET /attendance/1
+```
+
+---
+
+### GET `/attendance/student/{student_id}`
+
+Returns attendance records for one student.
+
+Example:
+
+```text
+GET /attendance/student/1
+```
+
+---
+
+### GET `/attendance/schedule/{schedule_id}`
+
+Returns attendance records for one schedule record.
+
+Example:
+
+```text
+GET /attendance/schedule/1
+```
+
+---
 
 ### POST `/attendance`
 
-Creates a new attendance record.
+Creates an attendance record.
 
-This endpoint inserts a new row into the `attendance_records` table.
-
-Used for:
-
-- Registering student attendance
-- Saving clock-in or clock-out actions
-- Storing the punch method: NFC, RFID, QR, barcode or manual
-
-Allowed roles:
-
-- admin
-- secretary
-- professor
-
-Example request:
+Request:
 
 ```json
 {
   "student_id": 1,
   "schedule_id": 1,
   "punch_type": "in",
-  "punch_method": "nfc"
+  "punch_method": "nfc",
+  "is_synced": true
 }
 ```
 
-Example response:
+Allowed `punch_type` values:
+
+```text
+in
+out
+```
+
+Allowed `punch_method` values:
+
+```text
+nfc
+rfid
+qr
+barcode
+manual
+```
+
+---
+
+### PUT `/attendance/{attendance_id}`
+
+Updates an attendance record.
+
+Request:
 
 ```json
 {
-  "message": "Attendance record created successfully",
-  "attendance_id": 3
+  "punch_type": "out",
+  "punch_method": "manual",
+  "is_synced": true
 }
 ```
 
-Attendance validation:
+---
 
-- Returns `404 Student not found` if the student does not exist.
-- Returns `404 Schedule not found` if the schedule does not exist.
-- Returns `403 Not enough permissions` if the user role is not allowed.
-- Returns `401 Invalid authentication credentials` if the token is missing or invalid.
+### DELETE `/attendance/{attendance_id}`
+
+Deletes an attendance record.
 
 ---
 
-## Academic data endpoints
+## 21. Recommended Swagger Test Order
 
-### GET `/disciplines`
+Recommended order for testing in Swagger:
 
-Returns the list of disciplines or subjects.
-
-This endpoint reads data from the `disciplines` table.
-
-Allowed roles:
-
-- admin
-- director
-- secretary
-- professor
-
-### GET `/schedule`
-
-Returns the generated school schedule.
-
-This endpoint reads data from the `generated_schedule` table and joins it with `classes`, `disciplines`, `professors` and `rooms`.
-
-Allowed roles:
-
-- admin
-- director
-- secretary
-- professor
+```text
+GET /
+POST /auth/login
+GET /roles
+GET /genders
+GET /school-years
+GET /courses
+GET /classes
+GET /users
+GET /professors
+GET /students
+GET /rooms
+GET /disciplines
+GET /discipline-course-years
+GET /professor-discipline-course-years
+GET /teacher-availability
+GET /school-calendar
+GET /schedule
+GET /attendance
+```
 
 ---
 
-## Current status
+## 22. Useful Test Payloads
 
-The API is working locally and has been tested with the MySQL database.
+---
 
-Completed:
+### Create Course
 
-- Read endpoints
-- Attendance registration endpoint
-- Basic authentication
-- JWT token generation
-- Bearer token authorization
-- Role-based endpoint protection
-- Student CRUD endpoints
-- Student creation, update and delete
-- Professor CRUD endpoints
-- Professor creation, update and delete
-- Room CRUD endpoints
-- Room creation, update and delete
-- Class validation
-- Duplicate student number/card UID validation
-- Protection against deleting students with attendance records
-- Protection against deleting professors with related records
-- Protection against deleting rooms with generated schedules
-- Environment-based configuration
-- Backend refactored into routers
-- API endpoints grouped by feature
-- Authentication, students, professors, rooms, attendance and academic data separated into modules
+```json
+{
+  "code": "WEBDEV",
+  "name": "Web Development Technician"
+}
+```
 
-## Next steps
+---
 
-- Add CRUD endpoints for disciplines
-- Improve attendance registration logic
-- Add schedule management endpoints
-- Prepare the backend for future Flutter integration
+### Create Class
+
+```json
+{
+  "name": "TGEI 1B",
+  "course_id": 1,
+  "school_year_id": 1,
+  "course_year_number": 1
+}
+```
+
+---
+
+### Create Student
+
+```json
+{
+  "full_name": "Test Student",
+  "student_number": "STU999",
+  "card_uid": "CARD999",
+  "class_id": 1,
+  "photo_path": null,
+  "gender_id": 1,
+  "address": "Rua Teste 99",
+  "postal_code": "4590-999",
+  "city": "Paços de Ferreira",
+  "contact": "929999999",
+  "date_of_birth": "2008-01-10"
+}
+```
+
+---
+
+### Create Room
+
+```json
+{
+  "name": "Computer Lab Test",
+  "capacity": 25,
+  "is_practice_room": true,
+  "location": "Test building"
+}
+```
+
+---
+
+### Create Discipline
+
+```json
+{
+  "name": "Cybersecurity",
+  "code": "CYBER"
+}
+```
+
+---
+
+### Create Discipline Course Year
+
+```json
+{
+  "discipline_id": 1,
+  "course_id": 1,
+  "school_year_id": 1,
+  "course_year_number": 1,
+  "total_minutes": 7200,
+  "lesson_duration_minutes": 60,
+  "is_practical": true
+}
+```
+
+---
+
+### Assign Professor to Discipline Course Year
+
+```json
+{
+  "professor_id": 1,
+  "discipline_course_year_id": 1
+}
+```
+
+---
+
+### Create School Calendar Record
+
+```json
+{
+  "school_year_id": 1,
+  "calendar_date": "2026-05-18",
+  "is_school_day": true,
+  "description": "Test school day"
+}
+```
+
+---
+
+### Create Teacher Availability
+
+```json
+{
+  "professor_id": 1,
+  "school_year_id": 1,
+  "day_of_week": "monday",
+  "start_time": "09:00:00",
+  "end_time": "13:00:00"
+}
+```
+
+---
+
+### Create Schedule Record
+
+```json
+{
+  "class_id": 1,
+  "discipline_course_year_id": 1,
+  "professor_id": 1,
+  "room_id": 2,
+  "calendar_id": 2,
+  "start_time": "10:00:00",
+  "end_time": "11:00:00",
+  "status": "approved"
+}
+```
+
+---
+
+### Create Attendance Record
+
+```json
+{
+  "student_id": 1,
+  "schedule_id": 1,
+  "punch_type": "in",
+  "punch_method": "nfc",
+  "is_synced": true
+}
+```
+
+---
+
+## 23. Known Limitations
+
+The current API is functional, but still has some limitations:
+
+- Large list endpoints do not have pagination yet.
+- Some helper functions are duplicated across routers.
+- `UserCreate` should be improved so the frontend sends `password` instead of `password_hash`.
+- The automatic schedule generation algorithm is not implemented yet.
+- The current schedule endpoint validates manual schedule creation but does not generate full schedules automatically.
+
+---
+
+## 24. Recommended Future Improvements
+
+Recommended future API improvements:
+
+1. Add pagination to large endpoints such as `/attendance`.
+2. Move duplicated helper functions to `utils.py`.
+3. Update user creation to accept a plain `password` and hash it in the backend.
+4. Add dashboard endpoints for attendance summaries.
+5. Add absence alert endpoints.
+6. Add automatic schedule generation.
+7. Define hard and soft constraints for scheduling.
+8. Consider separating business logic into service files.
+9. Consider using a database connection dependency or connection pool.

@@ -3,9 +3,9 @@ from mysql.connector import IntegrityError
 
 from auth import require_roles
 from db import get_connection
-from models import RoomCreate, RoomUpdate
+from models import SchoolYearCreate, SchoolYearUpdate
 
-router = APIRouter(prefix="/rooms", tags=["Rooms"])
+router = APIRouter(prefix="/school-years", tags=["School Years"])
 
 
 def get_audit_username(current_user):
@@ -27,7 +27,7 @@ def model_to_dict(model):
 
 
 @router.get("")
-def get_rooms(
+def get_school_years(
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
     connection = get_connection()
@@ -36,17 +36,16 @@ def get_rooms(
     try:
         cursor.execute("""
             SELECT
-                RoomID AS id,
+                SchoolYearID AS id,
                 Name AS name,
-                Capacity AS capacity,
-                IsPracticeRoom AS is_practice_room,
-                Location AS location,
+                StartDate AS start_date,
+                EndDate AS end_date,
                 InsertUsername AS insert_username,
                 InsertDate AS insert_date,
                 ChangeUsername AS change_username,
                 ChangeDate AS change_date
-            FROM Tbl_Rooms
-            ORDER BY RoomID
+            FROM Tref_SchoolYears
+            ORDER BY StartDate
         """)
 
         return cursor.fetchall()
@@ -56,9 +55,9 @@ def get_rooms(
         connection.close()
 
 
-@router.get("/{room_id}")
-def get_room(
-    room_id: int,
+@router.get("/{school_year_id}")
+def get_school_year(
+    school_year_id: int,
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
     connection = get_connection()
@@ -67,25 +66,24 @@ def get_room(
     try:
         cursor.execute("""
             SELECT
-                RoomID AS id,
+                SchoolYearID AS id,
                 Name AS name,
-                Capacity AS capacity,
-                IsPracticeRoom AS is_practice_room,
-                Location AS location,
+                StartDate AS start_date,
+                EndDate AS end_date,
                 InsertUsername AS insert_username,
                 InsertDate AS insert_date,
                 ChangeUsername AS change_username,
                 ChangeDate AS change_date
-            FROM Tbl_Rooms
-            WHERE RoomID = %s
-        """, (room_id,))
+            FROM Tref_SchoolYears
+            WHERE SchoolYearID = %s
+        """, (school_year_id,))
 
-        room = cursor.fetchone()
+        school_year = cursor.fetchone()
 
-        if room is None:
-            raise HTTPException(status_code=404, detail="Room not found")
+        if school_year is None:
+            raise HTTPException(status_code=404, detail="School year not found")
 
-        return room
+        return school_year
 
     finally:
         cursor.close()
@@ -93,10 +91,16 @@ def get_room(
 
 
 @router.post("")
-def create_room(
-    room: RoomCreate,
+def create_school_year(
+    school_year: SchoolYearCreate,
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
+    if school_year.end_date <= school_year.start_date:
+        raise HTTPException(
+            status_code=400,
+            detail="End date must be greater than start date"
+        )
+
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
@@ -104,27 +108,25 @@ def create_room(
 
     try:
         cursor.execute("""
-            INSERT INTO Tbl_Rooms (
+            INSERT INTO Tref_SchoolYears (
                 Name,
-                Capacity,
-                IsPracticeRoom,
-                Location,
+                StartDate,
+                EndDate,
                 InsertUsername
             )
-            VALUES (%s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s)
         """, (
-            room.name,
-            room.capacity,
-            room.is_practice_room,
-            room.location,
+            school_year.name,
+            school_year.start_date,
+            school_year.end_date,
             audit_username
         ))
 
         connection.commit()
 
         return {
-            "message": "Room created successfully",
-            "room_id": cursor.lastrowid
+            "message": "School year created successfully",
+            "school_year_id": cursor.lastrowid
         }
 
     except IntegrityError as error:
@@ -136,22 +138,21 @@ def create_room(
         connection.close()
 
 
-@router.put("/{room_id}")
-def update_room(
-    room_id: int,
-    room: RoomUpdate,
+@router.put("/{school_year_id}")
+def update_school_year(
+    school_year_id: int,
+    school_year: SchoolYearUpdate,
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    data = model_to_dict(room)
+    data = model_to_dict(school_year)
 
     if not data:
         raise HTTPException(status_code=400, detail="No fields provided for update")
 
     field_map = {
         "name": "Name",
-        "capacity": "Capacity",
-        "is_practice_room": "IsPracticeRoom",
-        "location": "Location"
+        "start_date": "StartDate",
+        "end_date": "EndDate"
     }
 
     set_clauses = []
@@ -170,26 +171,26 @@ def update_room(
     set_clauses.append("ChangeUsername = %s")
     values.append(audit_username)
 
-    values.append(room_id)
+    values.append(school_year_id)
 
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
         cursor.execute(f"""
-            UPDATE Tbl_Rooms
+            UPDATE Tref_SchoolYears
             SET {", ".join(set_clauses)}
-            WHERE RoomID = %s
+            WHERE SchoolYearID = %s
         """, tuple(values))
 
         connection.commit()
 
         if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Room not found")
+            raise HTTPException(status_code=404, detail="School year not found")
 
         return {
-            "message": "Room updated successfully",
-            "room_id": room_id
+            "message": "School year updated successfully",
+            "school_year_id": school_year_id
         }
 
     except IntegrityError as error:
@@ -201,9 +202,9 @@ def update_room(
         connection.close()
 
 
-@router.delete("/{room_id}")
-def delete_room(
-    room_id: int,
+@router.delete("/{school_year_id}")
+def delete_school_year(
+    school_year_id: int,
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     connection = get_connection()
@@ -211,25 +212,25 @@ def delete_room(
 
     try:
         cursor.execute("""
-            DELETE FROM Tbl_Rooms
-            WHERE RoomID = %s
-        """, (room_id,))
+            DELETE FROM Tref_SchoolYears
+            WHERE SchoolYearID = %s
+        """, (school_year_id,))
 
         connection.commit()
 
         if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Room not found")
+            raise HTTPException(status_code=404, detail="School year not found")
 
         return {
-            "message": "Room deleted successfully",
-            "room_id": room_id
+            "message": "School year deleted successfully",
+            "school_year_id": school_year_id
         }
 
     except IntegrityError:
         connection.rollback()
         raise HTTPException(
             status_code=400,
-            detail="Room cannot be deleted because it is being used by another record"
+            detail="School year cannot be deleted because it is being used by another record"
         )
 
     finally:

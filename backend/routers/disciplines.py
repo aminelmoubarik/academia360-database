@@ -3,9 +3,9 @@ from mysql.connector import IntegrityError
 
 from auth import require_roles
 from db import get_connection
-from models import RoomCreate, RoomUpdate
+from models import DisciplineCreate, DisciplineUpdate
 
-router = APIRouter(prefix="/rooms", tags=["Rooms"])
+router = APIRouter(prefix="/disciplines", tags=["Disciplines"])
 
 
 def get_audit_username(current_user):
@@ -27,7 +27,7 @@ def model_to_dict(model):
 
 
 @router.get("")
-def get_rooms(
+def get_disciplines(
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
     connection = get_connection()
@@ -36,17 +36,15 @@ def get_rooms(
     try:
         cursor.execute("""
             SELECT
-                RoomID AS id,
+                DisciplineID AS id,
                 Name AS name,
-                Capacity AS capacity,
-                IsPracticeRoom AS is_practice_room,
-                Location AS location,
+                Code AS code,
                 InsertUsername AS insert_username,
                 InsertDate AS insert_date,
                 ChangeUsername AS change_username,
                 ChangeDate AS change_date
-            FROM Tbl_Rooms
-            ORDER BY RoomID
+            FROM Tbl_Disciplines
+            ORDER BY DisciplineID
         """)
 
         return cursor.fetchall()
@@ -56,9 +54,9 @@ def get_rooms(
         connection.close()
 
 
-@router.get("/{room_id}")
-def get_room(
-    room_id: int,
+@router.get("/{discipline_id}")
+def get_discipline(
+    discipline_id: int,
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
     connection = get_connection()
@@ -67,25 +65,23 @@ def get_room(
     try:
         cursor.execute("""
             SELECT
-                RoomID AS id,
+                DisciplineID AS id,
                 Name AS name,
-                Capacity AS capacity,
-                IsPracticeRoom AS is_practice_room,
-                Location AS location,
+                Code AS code,
                 InsertUsername AS insert_username,
                 InsertDate AS insert_date,
                 ChangeUsername AS change_username,
                 ChangeDate AS change_date
-            FROM Tbl_Rooms
-            WHERE RoomID = %s
-        """, (room_id,))
+            FROM Tbl_Disciplines
+            WHERE DisciplineID = %s
+        """, (discipline_id,))
 
-        room = cursor.fetchone()
+        discipline = cursor.fetchone()
 
-        if room is None:
-            raise HTTPException(status_code=404, detail="Room not found")
+        if discipline is None:
+            raise HTTPException(status_code=404, detail="Discipline not found")
 
-        return room
+        return discipline
 
     finally:
         cursor.close()
@@ -93,8 +89,8 @@ def get_room(
 
 
 @router.post("")
-def create_room(
-    room: RoomCreate,
+def create_discipline(
+    discipline: DisciplineCreate,
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     connection = get_connection()
@@ -104,27 +100,23 @@ def create_room(
 
     try:
         cursor.execute("""
-            INSERT INTO Tbl_Rooms (
+            INSERT INTO Tbl_Disciplines (
                 Name,
-                Capacity,
-                IsPracticeRoom,
-                Location,
+                Code,
                 InsertUsername
             )
-            VALUES (%s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s)
         """, (
-            room.name,
-            room.capacity,
-            room.is_practice_room,
-            room.location,
+            discipline.name,
+            discipline.code,
             audit_username
         ))
 
         connection.commit()
 
         return {
-            "message": "Room created successfully",
-            "room_id": cursor.lastrowid
+            "message": "Discipline created successfully",
+            "discipline_id": cursor.lastrowid
         }
 
     except IntegrityError as error:
@@ -136,22 +128,20 @@ def create_room(
         connection.close()
 
 
-@router.put("/{room_id}")
-def update_room(
-    room_id: int,
-    room: RoomUpdate,
+@router.put("/{discipline_id}")
+def update_discipline(
+    discipline_id: int,
+    discipline: DisciplineUpdate,
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    data = model_to_dict(room)
+    data = model_to_dict(discipline)
 
     if not data:
         raise HTTPException(status_code=400, detail="No fields provided for update")
 
     field_map = {
         "name": "Name",
-        "capacity": "Capacity",
-        "is_practice_room": "IsPracticeRoom",
-        "location": "Location"
+        "code": "Code"
     }
 
     set_clauses = []
@@ -170,26 +160,26 @@ def update_room(
     set_clauses.append("ChangeUsername = %s")
     values.append(audit_username)
 
-    values.append(room_id)
+    values.append(discipline_id)
 
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
         cursor.execute(f"""
-            UPDATE Tbl_Rooms
+            UPDATE Tbl_Disciplines
             SET {", ".join(set_clauses)}
-            WHERE RoomID = %s
+            WHERE DisciplineID = %s
         """, tuple(values))
 
         connection.commit()
 
         if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Room not found")
+            raise HTTPException(status_code=404, detail="Discipline not found")
 
         return {
-            "message": "Room updated successfully",
-            "room_id": room_id
+            "message": "Discipline updated successfully",
+            "discipline_id": discipline_id
         }
 
     except IntegrityError as error:
@@ -201,9 +191,9 @@ def update_room(
         connection.close()
 
 
-@router.delete("/{room_id}")
-def delete_room(
-    room_id: int,
+@router.delete("/{discipline_id}")
+def delete_discipline(
+    discipline_id: int,
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     connection = get_connection()
@@ -211,25 +201,25 @@ def delete_room(
 
     try:
         cursor.execute("""
-            DELETE FROM Tbl_Rooms
-            WHERE RoomID = %s
-        """, (room_id,))
+            DELETE FROM Tbl_Disciplines
+            WHERE DisciplineID = %s
+        """, (discipline_id,))
 
         connection.commit()
 
         if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Room not found")
+            raise HTTPException(status_code=404, detail="Discipline not found")
 
         return {
-            "message": "Room deleted successfully",
-            "room_id": room_id
+            "message": "Discipline deleted successfully",
+            "discipline_id": discipline_id
         }
 
     except IntegrityError:
         connection.rollback()
         raise HTTPException(
             status_code=400,
-            detail="Room cannot be deleted because it is being used by another record"
+            detail="Discipline cannot be deleted because it is being used by another record"
         )
 
     finally:

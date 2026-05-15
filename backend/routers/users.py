@@ -3,9 +3,9 @@ from mysql.connector import IntegrityError
 
 from auth import require_roles
 from db import get_connection
-from models import RoomCreate, RoomUpdate
+from models import UserCreate, UserUpdate
 
-router = APIRouter(prefix="/rooms", tags=["Rooms"])
+router = APIRouter(prefix="/users", tags=["Users"])
 
 
 def get_audit_username(current_user):
@@ -27,8 +27,8 @@ def model_to_dict(model):
 
 
 @router.get("")
-def get_rooms(
-    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+def get_users(
+    current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
@@ -36,17 +36,18 @@ def get_rooms(
     try:
         cursor.execute("""
             SELECT
-                RoomID AS id,
-                Name AS name,
-                Capacity AS capacity,
-                IsPracticeRoom AS is_practice_room,
-                Location AS location,
-                InsertUsername AS insert_username,
-                InsertDate AS insert_date,
-                ChangeUsername AS change_username,
-                ChangeDate AS change_date
-            FROM Tbl_Rooms
-            ORDER BY RoomID
+                u.UserID AS id,
+                u.FullName AS full_name,
+                u.Email AS email,
+                u.RoleID AS role_id,
+                r.Name AS role,
+                u.InsertUsername AS insert_username,
+                u.InsertDate AS insert_date,
+                u.ChangeUsername AS change_username,
+                u.ChangeDate AS change_date
+            FROM Tbl_Users u
+            JOIN Tref_UserRoles r ON u.RoleID = r.RoleID
+            ORDER BY u.UserID
         """)
 
         return cursor.fetchall()
@@ -56,10 +57,10 @@ def get_rooms(
         connection.close()
 
 
-@router.get("/{room_id}")
-def get_room(
-    room_id: int,
-    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+@router.get("/{user_id}")
+def get_user(
+    user_id: int,
+    current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
@@ -67,25 +68,26 @@ def get_room(
     try:
         cursor.execute("""
             SELECT
-                RoomID AS id,
-                Name AS name,
-                Capacity AS capacity,
-                IsPracticeRoom AS is_practice_room,
-                Location AS location,
-                InsertUsername AS insert_username,
-                InsertDate AS insert_date,
-                ChangeUsername AS change_username,
-                ChangeDate AS change_date
-            FROM Tbl_Rooms
-            WHERE RoomID = %s
-        """, (room_id,))
+                u.UserID AS id,
+                u.FullName AS full_name,
+                u.Email AS email,
+                u.RoleID AS role_id,
+                r.Name AS role,
+                u.InsertUsername AS insert_username,
+                u.InsertDate AS insert_date,
+                u.ChangeUsername AS change_username,
+                u.ChangeDate AS change_date
+            FROM Tbl_Users u
+            JOIN Tref_UserRoles r ON u.RoleID = r.RoleID
+            WHERE u.UserID = %s
+        """, (user_id,))
 
-        room = cursor.fetchone()
+        user = cursor.fetchone()
 
-        if room is None:
-            raise HTTPException(status_code=404, detail="Room not found")
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
 
-        return room
+        return user
 
     finally:
         cursor.close()
@@ -93,8 +95,8 @@ def get_room(
 
 
 @router.post("")
-def create_room(
-    room: RoomCreate,
+def create_user(
+    user: UserCreate,
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     connection = get_connection()
@@ -104,27 +106,27 @@ def create_room(
 
     try:
         cursor.execute("""
-            INSERT INTO Tbl_Rooms (
-                Name,
-                Capacity,
-                IsPracticeRoom,
-                Location,
+            INSERT INTO Tbl_Users (
+                FullName,
+                Email,
+                PasswordHash,
+                RoleID,
                 InsertUsername
             )
             VALUES (%s, %s, %s, %s, %s)
         """, (
-            room.name,
-            room.capacity,
-            room.is_practice_room,
-            room.location,
+            user.full_name,
+            user.email,
+            user.password_hash,
+            user.role_id,
             audit_username
         ))
 
         connection.commit()
 
         return {
-            "message": "Room created successfully",
-            "room_id": cursor.lastrowid
+            "message": "User created successfully",
+            "user_id": cursor.lastrowid
         }
 
     except IntegrityError as error:
@@ -136,22 +138,22 @@ def create_room(
         connection.close()
 
 
-@router.put("/{room_id}")
-def update_room(
-    room_id: int,
-    room: RoomUpdate,
+@router.put("/{user_id}")
+def update_user(
+    user_id: int,
+    user: UserUpdate,
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    data = model_to_dict(room)
+    data = model_to_dict(user)
 
     if not data:
         raise HTTPException(status_code=400, detail="No fields provided for update")
 
     field_map = {
-        "name": "Name",
-        "capacity": "Capacity",
-        "is_practice_room": "IsPracticeRoom",
-        "location": "Location"
+        "full_name": "FullName",
+        "email": "Email",
+        "password_hash": "PasswordHash",
+        "role_id": "RoleID"
     }
 
     set_clauses = []
@@ -170,26 +172,26 @@ def update_room(
     set_clauses.append("ChangeUsername = %s")
     values.append(audit_username)
 
-    values.append(room_id)
+    values.append(user_id)
 
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
         cursor.execute(f"""
-            UPDATE Tbl_Rooms
+            UPDATE Tbl_Users
             SET {", ".join(set_clauses)}
-            WHERE RoomID = %s
+            WHERE UserID = %s
         """, tuple(values))
 
         connection.commit()
 
         if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Room not found")
+            raise HTTPException(status_code=404, detail="User not found")
 
         return {
-            "message": "Room updated successfully",
-            "room_id": room_id
+            "message": "User updated successfully",
+            "user_id": user_id
         }
 
     except IntegrityError as error:
@@ -201,35 +203,35 @@ def update_room(
         connection.close()
 
 
-@router.delete("/{room_id}")
-def delete_room(
-    room_id: int,
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+@router.delete("/{user_id}")
+def delete_user(
+    user_id: int,
+    current_user=Depends(require_roles(["admin", "director"]))
 ):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
         cursor.execute("""
-            DELETE FROM Tbl_Rooms
-            WHERE RoomID = %s
-        """, (room_id,))
+            DELETE FROM Tbl_Users
+            WHERE UserID = %s
+        """, (user_id,))
 
         connection.commit()
 
         if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Room not found")
+            raise HTTPException(status_code=404, detail="User not found")
 
         return {
-            "message": "Room deleted successfully",
-            "room_id": room_id
+            "message": "User deleted successfully",
+            "user_id": user_id
         }
 
     except IntegrityError:
         connection.rollback()
         raise HTTPException(
             status_code=400,
-            detail="Room cannot be deleted because it is being used by another record"
+            detail="User cannot be deleted because it is being used by another record"
         )
 
     finally:

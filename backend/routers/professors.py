@@ -1,236 +1,335 @@
-from typing import Optional
-
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
-from db import get_connection
 from auth import require_roles
+from db import get_connection
 from models import ProfessorCreate, ProfessorUpdate
-
 
 router = APIRouter(prefix="/professors", tags=["Professors"])
 
 
-def validate_user_exists(cursor, user_id: Optional[int]):
-    if user_id is None:
-        return
+def get_audit_username(current_user):
+    if isinstance(current_user, dict):
+        return (
+            current_user.get("email")
+            or current_user.get("Email")
+            or current_user.get("full_name")
+            or current_user.get("FullName")
+            or "api"
+        )
+    return "api"
 
-    cursor.execute(
-        "SELECT id FROM users WHERE id = %s",
-        (user_id,)
-    )
 
-    user = cursor.fetchone()
+def model_to_dict(model):
+    if hasattr(model, "model_dump"):
+        return model.model_dump(exclude_unset=True)
+    return model.dict(exclude_unset=True)
 
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
 
 @router.get("")
 def get_professors(
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
-):
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
-
-    cursor.execute("""
-        SELECT
-            professors.id,
-            professors.user_id,
-            professors.full_name,
-            professors.email,
-            users.role AS user_role,
-            GROUP_CONCAT(disciplines.name SEPARATOR ', ') AS disciplines
-        FROM professors
-        LEFT JOIN users ON professors.user_id = users.id
-        LEFT JOIN professor_disciplines 
-            ON professors.id = professor_disciplines.professor_id
-        LEFT JOIN disciplines 
-            ON professor_disciplines.discipline_id = disciplines.id
-        GROUP BY
-            professors.id,
-            professors.user_id,
-            professors.full_name,
-            professors.email,
-            users.role
-    """)
-
-    data = cursor.fetchall()
-
-    cursor.close()
-    connection.close()
-
-    return data
-
-@router.post("")
-def create_professor(
-    professor: ProfessorCreate,
-    current_user=Depends(require_roles(["admin", "secretary"]))
+    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
-        validate_user_exists(cursor, professor.user_id)
+        cursor.execute("""
+            SELECT
+                p.ProfessorID AS id,
+                p.UserID AS user_id,
+                u.FullName AS full_name,
+                u.Email AS email,
+                r.Name AS role,
+                p.PhotoPath AS photo_path,
+                p.GenderID AS gender_id,
+                g.Name AS gender,
+                p.Address AS address,
+                p.PostalCode AS postal_code,
+                p.City AS city,
+                p.Contact AS contact,
+                p.DateOfBirth AS date_of_birth,
+                GROUP_CONCAT(
+                    DISTINCT CONCAT(d.Name, ' - ', c.Code, ' - ', sy.Name)
+                    SEPARATOR ', '
+                ) AS disciplines,
+                p.InsertUsername AS insert_username,
+                p.InsertDate AS insert_date,
+                p.ChangeUsername AS change_username,
+                p.ChangeDate AS change_date
+            FROM Tbl_Professors p
+            JOIN Tbl_Users u ON p.UserID = u.UserID
+            JOIN Tref_UserRoles r ON u.RoleID = r.RoleID
+            LEFT JOIN Tref_Gender g ON p.GenderID = g.GenderID
+            LEFT JOIN trx_Professor_DisciplineCourseYear pd 
+                ON p.ProfessorID = pd.ProfessorID
+            LEFT JOIN trx_Discipline_CourseYear dc 
+                ON pd.DisciplineCourseYearID = dc.DisciplineCourseYearID
+            LEFT JOIN Tbl_Disciplines d 
+                ON dc.DisciplineID = d.DisciplineID
+            LEFT JOIN Tbl_Courses c 
+                ON dc.CourseID = c.CourseID
+            LEFT JOIN Tref_SchoolYears sy 
+                ON dc.SchoolYearID = sy.SchoolYearID
+            GROUP BY
+                p.ProfessorID,
+                p.UserID,
+                u.FullName,
+                u.Email,
+                r.Name,
+                p.PhotoPath,
+                p.GenderID,
+                g.Name,
+                p.Address,
+                p.PostalCode,
+                p.City,
+                p.Contact,
+                p.DateOfBirth,
+                p.InsertUsername,
+                p.InsertDate,
+                p.ChangeUsername,
+                p.ChangeDate
+            ORDER BY p.ProfessorID
+        """)
 
-        cursor.execute(
-            """
-            INSERT INTO professors
-            (user_id, full_name, email)
-            VALUES (%s, %s, %s)
-            """,
-            (
-                professor.user_id,
-                professor.full_name,
-                professor.email
-            )
-        )
-
-        connection.commit()
-        new_id = cursor.lastrowid
-
-    except IntegrityError:
-        connection.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="Professor email or user already exists"
-        )
+        return cursor.fetchall()
 
     finally:
         cursor.close()
         connection.close()
 
-    return {
-        "message": "Professor created successfully",
-        "professor_id": new_id
-    }
+
+@router.get("/{professor_id}")
+def get_professor(
+    professor_id: int,
+    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+):
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT
+                p.ProfessorID AS id,
+                p.UserID AS user_id,
+                u.FullName AS full_name,
+                u.Email AS email,
+                r.Name AS role,
+                p.PhotoPath AS photo_path,
+                p.GenderID AS gender_id,
+                g.Name AS gender,
+                p.Address AS address,
+                p.PostalCode AS postal_code,
+                p.City AS city,
+                p.Contact AS contact,
+                p.DateOfBirth AS date_of_birth,
+                GROUP_CONCAT(
+                    DISTINCT CONCAT(d.Name, ' - ', c.Code, ' - ', sy.Name)
+                    SEPARATOR ', '
+                ) AS disciplines,
+                p.InsertUsername AS insert_username,
+                p.InsertDate AS insert_date,
+                p.ChangeUsername AS change_username,
+                p.ChangeDate AS change_date
+            FROM Tbl_Professors p
+            JOIN Tbl_Users u ON p.UserID = u.UserID
+            JOIN Tref_UserRoles r ON u.RoleID = r.RoleID
+            LEFT JOIN Tref_Gender g ON p.GenderID = g.GenderID
+            LEFT JOIN trx_Professor_DisciplineCourseYear pd 
+                ON p.ProfessorID = pd.ProfessorID
+            LEFT JOIN trx_Discipline_CourseYear dc 
+                ON pd.DisciplineCourseYearID = dc.DisciplineCourseYearID
+            LEFT JOIN Tbl_Disciplines d 
+                ON dc.DisciplineID = d.DisciplineID
+            LEFT JOIN Tbl_Courses c 
+                ON dc.CourseID = c.CourseID
+            LEFT JOIN Tref_SchoolYears sy 
+                ON dc.SchoolYearID = sy.SchoolYearID
+            WHERE p.ProfessorID = %s
+            GROUP BY
+                p.ProfessorID,
+                p.UserID,
+                u.FullName,
+                u.Email,
+                r.Name,
+                p.PhotoPath,
+                p.GenderID,
+                g.Name,
+                p.Address,
+                p.PostalCode,
+                p.City,
+                p.Contact,
+                p.DateOfBirth,
+                p.InsertUsername,
+                p.InsertDate,
+                p.ChangeUsername,
+                p.ChangeDate
+        """, (professor_id,))
+
+        professor = cursor.fetchone()
+
+        if professor is None:
+            raise HTTPException(status_code=404, detail="Professor not found")
+
+        return professor
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@router.post("")
+def create_professor(
+    professor: ProfessorCreate,
+    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+):
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    audit_username = get_audit_username(current_user)
+
+    try:
+        cursor.execute("""
+            INSERT INTO Tbl_Professors (
+                UserID,
+                PhotoPath,
+                GenderID,
+                Address,
+                PostalCode,
+                City,
+                Contact,
+                DateOfBirth,
+                InsertUsername
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            professor.user_id,
+            professor.photo_path,
+            professor.gender_id,
+            professor.address,
+            professor.postal_code,
+            professor.city,
+            professor.contact,
+            professor.date_of_birth,
+            audit_username
+        ))
+
+        connection.commit()
+
+        return {
+            "message": "Professor created successfully",
+            "professor_id": cursor.lastrowid
+        }
+
+    except IntegrityError as error:
+        connection.rollback()
+        raise HTTPException(status_code=400, detail=str(error))
+
+    finally:
+        cursor.close()
+        connection.close()
 
 
 @router.put("/{professor_id}")
 def update_professor(
     professor_id: int,
     professor: ProfessorUpdate,
-    current_user=Depends(require_roles(["admin", "secretary"]))
+    current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
+    data = model_to_dict(professor)
 
-    cursor.execute(
-        "SELECT id FROM professors WHERE id = %s",
-        (professor_id,)
-    )
+    if not data:
+        raise HTTPException(status_code=400, detail="No fields provided for update")
 
-    existing_professor = cursor.fetchone()
+    field_map = {
+        "user_id": "UserID",
+        "photo_path": "PhotoPath",
+        "gender_id": "GenderID",
+        "address": "Address",
+        "postal_code": "PostalCode",
+        "city": "City",
+        "contact": "Contact",
+        "date_of_birth": "DateOfBirth"
+    }
 
-    if existing_professor is None:
-        cursor.close()
-        connection.close()
-        raise HTTPException(status_code=404, detail="Professor not found")
-
-    update_fields = []
+    set_clauses = []
     values = []
 
-    if professor.user_id is not None:
-        validate_user_exists(cursor, professor.user_id)
-        update_fields.append("user_id = %s")
-        values.append(professor.user_id)
+    for api_field, db_field in field_map.items():
+        if api_field in data:
+            set_clauses.append(f"{db_field} = %s")
+            values.append(data[api_field])
 
-    if professor.full_name is not None:
-        update_fields.append("full_name = %s")
-        values.append(professor.full_name)
+    if not set_clauses:
+        raise HTTPException(status_code=400, detail="No valid fields provided for update")
 
-    if professor.email is not None:
-        update_fields.append("email = %s")
-        values.append(professor.email)
+    audit_username = get_audit_username(current_user)
 
-    if not update_fields:
-        cursor.close()
-        connection.close()
-        raise HTTPException(status_code=400, detail="No fields to update")
+    set_clauses.append("ChangeUsername = %s")
+    values.append(audit_username)
 
     values.append(professor_id)
 
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
     try:
-        cursor.execute(
-            f"""
-            UPDATE professors
-            SET {", ".join(update_fields)}
-            WHERE id = %s
-            """,
-            values
-        )
+        cursor.execute(f"""
+            UPDATE Tbl_Professors
+            SET {", ".join(set_clauses)}
+            WHERE ProfessorID = %s
+        """, tuple(values))
 
         connection.commit()
 
-    except IntegrityError:
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Professor not found")
+
+        return {
+            "message": "Professor updated successfully",
+            "professor_id": professor_id
+        }
+
+    except IntegrityError as error:
         connection.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="Professor email or user already exists"
-        )
+        raise HTTPException(status_code=400, detail=str(error))
 
     finally:
         cursor.close()
         connection.close()
 
-    return {
-        "message": "Professor updated successfully",
-        "professor_id": professor_id
-    }
-
 
 @router.delete("/{professor_id}")
 def delete_professor(
     professor_id: int,
-    current_user=Depends(require_roles(["admin", "secretary"]))
+    current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
-    cursor.execute(
-        "SELECT id FROM professors WHERE id = %s",
-        (professor_id,)
-    )
+    try:
+        cursor.execute("""
+            DELETE FROM Tbl_Professors
+            WHERE ProfessorID = %s
+        """, (professor_id,))
 
-    professor = cursor.fetchone()
+        connection.commit()
 
-    if professor is None:
-        cursor.close()
-        connection.close()
-        raise HTTPException(status_code=404, detail="Professor not found")
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Professor not found")
 
-    related_checks = [
-        ("generated_schedule", "Professor has generated schedules"),
-        ("teacher_availability", "Professor has availability records"),
-        ("professor_disciplines", "Professor has discipline assignments")
-    ]
+        return {
+            "message": "Professor deleted successfully",
+            "professor_id": professor_id
+        }
 
-    for table_name, error_message in related_checks:
-        cursor.execute(
-            f"SELECT professor_id FROM {table_name} WHERE professor_id = %s LIMIT 1",
-            (professor_id,)
+    except IntegrityError:
+        connection.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Professor cannot be deleted because it is being used by another record"
         )
 
-        related_record = cursor.fetchone()
-
-        if related_record is not None:
-            cursor.close()
-            connection.close()
-            raise HTTPException(
-                status_code=409,
-                detail=error_message
-            )
-
-    cursor.execute(
-        "DELETE FROM professors WHERE id = %s",
-        (professor_id,)
-    )
-
-    connection.commit()
-
-    cursor.close()
-    connection.close()
-
-    return {
-        "message": "Professor deleted successfully",
-        "professor_id": professor_id
-    }
+    finally:
+        cursor.close()
+        connection.close()

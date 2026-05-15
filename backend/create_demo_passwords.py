@@ -1,34 +1,85 @@
+import os
+
+import mysql.connector
+from dotenv import load_dotenv
+
 from auth import get_password_hash
-from db import get_connection
+
+load_dotenv()
 
 
-demo_users = {
-    "admin@academia360.pt": "admin123",
-    "director@academia360.pt": "director123",
-    "secretary@academia360.pt": "secretary123",
-    "afonso@academia360.pt": "professor123",
-    "joana@academia360.pt": "professor123",
-}
-
-
-connection = get_connection()
-cursor = connection.cursor()
-
-for email, password in demo_users.items():
-    password_hash = get_password_hash(password)
-
-    cursor.execute(
-        """
-        UPDATE users
-        SET password_hash = %s
-        WHERE email = %s
-        """,
-        (password_hash, email)
+def get_connection():
+    return mysql.connector.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        user=os.getenv("DB_USER", "root"),
+        password=os.getenv("DB_PASSWORD", ""),
+        database=os.getenv("DB_NAME", "academia360"),
+        port=int(os.getenv("DB_PORT", 3306))
     )
 
-connection.commit()
 
-cursor.close()
-connection.close()
+def main():
+    demo_users = [
+        {
+            "email": "admin@academia360.local",
+            "password": "admin"
+        },
+        {
+            "email": "laura.mendes@academia360.local",
+            "password": "director"
+        },
+        {
+            "email": "rita.almeida@academia360.local",
+            "password": "secretary"
+        },
+        {
+            "email": "miguel.ramos@academia360.local",
+            "password": "professor"
+        },
+        {
+            "email": "ines.duarte@academia360.local",
+            "password": "professor"
+        },
+        {
+            "email": "pedro.neves@academia360.local",
+            "password": "professor"
+        }
+    ]
 
-print("Demo passwords updated successfully.")
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    for user in demo_users:
+        password_hash = get_password_hash(user["password"])
+
+        cursor.execute("""
+            UPDATE Tbl_Users
+            SET PasswordHash = %s,
+                ChangeUsername = 'create_demo_passwords'
+            WHERE Email = %s
+        """, (
+            password_hash,
+            user["email"]
+        ))
+
+        print(f"Updated password for {user['email']}")
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    print("")
+    print("Demo passwords created successfully.")
+    print("")
+    print("Login users:")
+    print("admin@academia360.local / admin")
+    print("laura.mendes@academia360.local / director")
+    print("rita.almeida@academia360.local / secretary")
+    print("miguel.ramos@academia360.local / professor")
+    print("ines.duarte@academia360.local / professor")
+    print("pedro.neves@academia360.local / professor")
+
+
+if __name__ == "__main__":
+    main()
