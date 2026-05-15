@@ -1,8 +1,8 @@
-# Academia360 ER Diagram
+# Academia360 ER Diagram and Relational Model
 
-This document describes the Entity Relationship Diagram of the Academia360 database.
+This document describes the relational model of the Academia360 database.
 
-The database is organized using three table prefixes:
+The database uses three table prefixes:
 
 | Prefix | Meaning | Example |
 |---|---|---|
@@ -12,107 +12,26 @@ The database is organized using three table prefixes:
 
 ---
 
-## 1. Main Relationships Overview
-
-```text
-Tref_UserRoles 1 ─── N Tbl_Users
-
-Tbl_Users 1 ─── 0..1 Tbl_Professors
-
-Tref_Gender 1 ─── N Tbl_Students
-Tref_Gender 1 ─── N Tbl_Professors
-
-Tref_SchoolYears 1 ─── N Tbl_Classes
-Tref_SchoolYears 1 ─── N Tbl_SchoolCalendar
-Tref_SchoolYears 1 ─── N Tbl_TeacherAvailability
-Tref_SchoolYears 1 ─── N trx_Discipline_CourseYear
-
-Tbl_Courses 1 ─── N Tbl_Classes
-Tbl_Courses 1 ─── N trx_Discipline_CourseYear
-
-Tbl_Classes 1 ─── N Tbl_Students
-Tbl_Classes 1 ─── N Tbl_GeneratedSchedule
-
-Tbl_Disciplines 1 ─── N trx_Discipline_CourseYear
-
-trx_Discipline_CourseYear 1 ─── N Tbl_GeneratedSchedule
-
-Tbl_Professors N ─── N trx_Discipline_CourseYear
-through trx_Professor_DisciplineCourseYear
-
-Tbl_Professors 1 ─── N Tbl_TeacherAvailability
-Tbl_Professors 1 ─── N Tbl_GeneratedSchedule
-
-Tbl_Rooms 1 ─── N Tbl_GeneratedSchedule
-
-Tbl_SchoolCalendar 1 ─── N Tbl_GeneratedSchedule
-
-Tbl_GeneratedSchedule 1 ─── N Tbl_AttendanceRecords
-
-Tbl_Students 1 ─── N Tbl_AttendanceRecords
-```
+## 1. Relational Model
 
 ---
 
-## 2. Mermaid ER Diagram
+## Reference Tables
 
-```mermaid
-erDiagram
-    Tref_UserRoles ||--o{ Tbl_Users : has
-    Tbl_Users ||--o| Tbl_Professors : may_be
-
-    Tref_Gender ||--o{ Tbl_Students : has
-    Tref_Gender ||--o{ Tbl_Professors : has
-
-    Tref_SchoolYears ||--o{ Tbl_Classes : contains
-    Tref_SchoolYears ||--o{ Tbl_SchoolCalendar : contains
-    Tref_SchoolYears ||--o{ Tbl_TeacherAvailability : defines
-    Tref_SchoolYears ||--o{ trx_Discipline_CourseYear : configures
-
-    Tbl_Courses ||--o{ Tbl_Classes : has
-    Tbl_Courses ||--o{ trx_Discipline_CourseYear : includes
-
-    Tbl_Classes ||--o{ Tbl_Students : contains
-    Tbl_Classes ||--o{ Tbl_GeneratedSchedule : has
-
-    Tbl_Disciplines ||--o{ trx_Discipline_CourseYear : configured_as
-
-    Tbl_Professors ||--o{ trx_Professor_DisciplineCourseYear : teaches
-    trx_Discipline_CourseYear ||--o{ trx_Professor_DisciplineCourseYear : assigned_to
-
-    trx_Discipline_CourseYear ||--o{ Tbl_GeneratedSchedule : scheduled_as
-
-    Tbl_Professors ||--o{ Tbl_TeacherAvailability : has
-    Tbl_Professors ||--o{ Tbl_GeneratedSchedule : teaches
-
-    Tbl_Rooms ||--o{ Tbl_GeneratedSchedule : used_in
-    Tbl_SchoolCalendar ||--o{ Tbl_GeneratedSchedule : date_of
-
-    Tbl_GeneratedSchedule ||--o{ Tbl_AttendanceRecords : has
-    Tbl_Students ||--o{ Tbl_AttendanceRecords : registers
-```
-
----
-
-## 3. Reference Tables
-
-Reference tables store controlled lists of values used by other tables.
-
----
-
-### 3.1. `Tref_UserRoles`
-
-Stores the available user roles in the system.
+### `Tref_UserRoles`
 
 ```text
 Tref_UserRoles
-├── RoleID PK
-├── Name
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+---------------
+RoleID PK
+Name
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
+
+Stores the available roles in the system.
 
 Example values:
 
@@ -123,27 +42,22 @@ secretary
 professor
 ```
 
-Relationship:
-
-```text
-Tref_UserRoles 1 ─── N Tbl_Users
-```
-
 ---
 
-### 3.2. `Tref_Gender`
-
-Stores gender reference values.
+### `Tref_Gender`
 
 ```text
 Tref_Gender
-├── GenderID PK
-├── Name
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+------------
+GenderID PK
+Name
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
+
+Stores gender reference values.
 
 Example values:
 
@@ -153,96 +67,73 @@ Female
 Other
 ```
 
-Relationships:
-
-```text
-Tref_Gender 1 ─── N Tbl_Students
-Tref_Gender 1 ─── N Tbl_Professors
-```
-
 ---
 
-### 3.3. `Tref_SchoolYears`
-
-Stores school years.
+### `Tref_SchoolYears`
 
 ```text
 Tref_SchoolYears
-├── SchoolYearID PK
-├── Name
-├── StartDate
-├── EndDate
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+----------------
+SchoolYearID PK
+Name
+StartDate
+EndDate
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
 
-Example value:
+Stores the school years used by classes, calendar records, teacher availability and discipline workload configurations.
+
+Example values:
 
 ```text
 2025/2026
-```
-
-Relationships:
-
-```text
-Tref_SchoolYears 1 ─── N Tbl_Classes
-Tref_SchoolYears 1 ─── N Tbl_SchoolCalendar
-Tref_SchoolYears 1 ─── N Tbl_TeacherAvailability
-Tref_SchoolYears 1 ─── N trx_Discipline_CourseYear
+2026/2027
 ```
 
 ---
 
-## 4. Main Data Tables
+## Main Data Tables
 
----
-
-### 4.1. `Tbl_Users`
-
-Stores users who can authenticate into the system.
+### `Tbl_Users`
 
 ```text
 Tbl_Users
-├── UserID PK
-├── FullName
-├── Email
-├── PasswordHash
-├── RoleID FK
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+---------
+UserID PK
+FullName
+Email UNIQUE
+PasswordHash
+RoleID FK -> Tref_UserRoles.RoleID
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
 
-Relationships:
+Stores users who can authenticate into the system.
 
-```text
-Tref_UserRoles 1 ─── N Tbl_Users
-Tbl_Users 1 ─── 0..1 Tbl_Professors
-```
-
-Important note:
-
-The professor's name and email are stored in `Tbl_Users`, not in `Tbl_Professors`.
+The user role is linked through `RoleID`.
 
 ---
 
-### 4.2. `Tbl_Courses`
-
-Stores training programmes.
+### `Tbl_Courses`
 
 ```text
 Tbl_Courses
-├── CourseID PK
-├── Code
-├── Name
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+-----------
+CourseID PK
+Code UNIQUE
+Name
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
+
+Stores the general training programmes.
 
 Example values:
 
@@ -252,137 +143,114 @@ TGPSI
 TCIB
 ```
 
-Relationships:
-
-```text
-Tbl_Courses 1 ─── N Tbl_Classes
-Tbl_Courses 1 ─── N trx_Discipline_CourseYear
-```
-
 ---
 
-### 4.3. `Tbl_Classes`
-
-Stores student groups for a specific course and school year.
+### `Tbl_Classes`
 
 ```text
 Tbl_Classes
-├── ClassID PK
-├── Name
-├── CourseID FK
-├── SchoolYearID FK
-├── CourseYearNumber
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+-----------
+ClassID PK
+Name
+CourseID FK -> Tbl_Courses.CourseID
+SchoolYearID FK -> Tref_SchoolYears.SchoolYearID
+CourseYearNumber
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
 
-Example values:
+Stores student groups inside a course and school year.
+
+Example:
 
 ```text
 TGEI 1A
-TGEI 2A
-TGPSI 1A
-TCIB 2A
-```
-
-Relationships:
-
-```text
-Tbl_Courses 1 ─── N Tbl_Classes
-Tref_SchoolYears 1 ─── N Tbl_Classes
-Tbl_Classes 1 ─── N Tbl_Students
-Tbl_Classes 1 ─── N Tbl_GeneratedSchedule
+Course: TGEI
+School year: 2025/2026
+Course year number: 1
 ```
 
 ---
 
-### 4.4. `Tbl_Students`
-
-Stores student information.
+### `Tbl_Students`
 
 ```text
 Tbl_Students
-├── StudentID PK
-├── FullName
-├── StudentNumber
-├── CardUID
-├── ClassID FK
-├── PhotoPath
-├── GenderID FK
-├── Address
-├── PostalCode
-├── City
-├── Contact
-├── DateOfBirth
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+------------
+StudentID PK
+FullName
+StudentNumber UNIQUE
+CardUID UNIQUE
+ClassID FK -> Tbl_Classes.ClassID
+PhotoPath
+GenderID FK -> Tref_Gender.GenderID
+Address
+PostalCode
+City
+Contact
+DateOfBirth
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
 
-Relationships:
+Stores student information.
 
-```text
-Tbl_Classes 1 ─── N Tbl_Students
-Tref_Gender 1 ─── N Tbl_Students
-Tbl_Students 1 ─── N Tbl_AttendanceRecords
-```
+Students are assigned to a class through `ClassID`.
 
 ---
 
-### 4.5. `Tbl_Professors`
-
-Stores professor-specific information.
+### `Tbl_Professors`
 
 ```text
 Tbl_Professors
-├── ProfessorID PK
-├── UserID FK
-├── PhotoPath
-├── GenderID FK
-├── Address
-├── PostalCode
-├── City
-├── Contact
-├── DateOfBirth
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+--------------
+ProfessorID PK
+UserID FK -> Tbl_Users.UserID
+PhotoPath
+GenderID FK -> Tref_Gender.GenderID
+Address
+PostalCode
+City
+Contact
+DateOfBirth
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
 
-Relationships:
+Stores professor-specific information.
+
+Important:
 
 ```text
-Tbl_Users 1 ─── 0..1 Tbl_Professors
-Tref_Gender 1 ─── N Tbl_Professors
-Tbl_Professors 1 ─── N Tbl_TeacherAvailability
-Tbl_Professors 1 ─── N Tbl_GeneratedSchedule
-Tbl_Professors N ─── N trx_Discipline_CourseYear through trx_Professor_DisciplineCourseYear
+Professor name and email are not stored here.
+They come from Tbl_Users.
 ```
 
-Important note:
-
-`Tbl_Professors` does not store `FullName` or `Email`. These fields are stored in `Tbl_Users`.
+This avoids duplicating name and email in both `Tbl_Users` and `Tbl_Professors`.
 
 ---
 
-### 4.6. `Tbl_Disciplines`
-
-Stores the general discipline catalogue.
+### `Tbl_Disciplines`
 
 ```text
 Tbl_Disciplines
-├── DisciplineID PK
-├── Name
-├── Code
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+---------------
+DisciplineID PK
+Name
+Code
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
+
+Stores the general catalogue of disciplines.
 
 Example values:
 
@@ -394,376 +262,150 @@ Operating Systems
 Mathematics
 ```
 
-Relationship:
+Important:
 
 ```text
-Tbl_Disciplines 1 ─── N trx_Discipline_CourseYear
+This table does not store total hours, lesson duration or practical flag.
+Those values are stored in trx_Discipline_CourseYear.
 ```
-
-Important note:
-
-The workload of a discipline is not stored in `Tbl_Disciplines`. It is stored in `trx_Discipline_CourseYear`.
 
 ---
 
-### 4.7. `Tbl_Rooms`
-
-Stores school rooms.
+### `Tbl_Rooms`
 
 ```text
 Tbl_Rooms
-├── RoomID PK
-├── Name
-├── Capacity
-├── IsPracticeRoom
-├── Location
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+---------
+RoomID PK
+Name
+Capacity
+IsPracticeRoom
+Location
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
 
-Relationships:
+Stores rooms used for schedule records.
 
-```text
-Tbl_Rooms 1 ─── N Tbl_GeneratedSchedule
-```
+`IsPracticeRoom` indicates whether the room can be used for practical disciplines.
 
 ---
 
-### 4.8. `Tbl_SchoolCalendar`
-
-Stores school calendar dates.
+### `Tbl_SchoolCalendar`
 
 ```text
 Tbl_SchoolCalendar
-├── CalendarID PK
-├── SchoolYearID FK
-├── CalendarDate
-├── IsSchoolDay
-├── Description
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+------------------
+CalendarID PK
+SchoolYearID FK -> Tref_SchoolYears.SchoolYearID
+CalendarDate UNIQUE
+IsSchoolDay
+Description
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
 
-Example values:
+Stores school calendar dates.
 
-```text
-2025-09-15 | School day
-2025-12-25 | Holiday
-2026-01-01 | Holiday
-```
-
-Relationships:
-
-```text
-Tref_SchoolYears 1 ─── N Tbl_SchoolCalendar
-Tbl_SchoolCalendar 1 ─── N Tbl_GeneratedSchedule
-```
+This table allows the system to know if a date is a school day or not.
 
 ---
 
-### 4.9. `Tbl_TeacherAvailability`
-
-Stores teacher availability by school year.
+### `Tbl_TeacherAvailability`
 
 ```text
 Tbl_TeacherAvailability
-├── TeacherAvailabilityID PK
-├── ProfessorID FK
-├── SchoolYearID FK
-├── DayOfWeek
-├── StartTime
-├── EndTime
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+-----------------------
+TeacherAvailabilityID PK
+ProfessorID FK -> Tbl_Professors.ProfessorID
+SchoolYearID FK -> Tref_SchoolYears.SchoolYearID
+DayOfWeek
+StartTime
+EndTime
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
 
-Relationships:
+Stores professor availability by school year.
+
+Allowed `DayOfWeek` values:
 
 ```text
-Tbl_Professors 1 ─── N Tbl_TeacherAvailability
-Tref_SchoolYears 1 ─── N Tbl_TeacherAvailability
+monday
+tuesday
+wednesday
+thursday
+friday
 ```
 
 ---
 
-### 4.10. `Tbl_GeneratedSchedule`
-
-Stores generated or manually created schedule records.
+### `Tbl_GeneratedSchedule`
 
 ```text
 Tbl_GeneratedSchedule
-├── ScheduleID PK
-├── ClassID FK
-├── DisciplineCourseYearID FK
-├── ProfessorID FK
-├── RoomID FK
-├── CalendarID FK
-├── StartTime
-├── EndTime
-├── Status
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
+---------------------
+ScheduleID PK
+ClassID FK -> Tbl_Classes.ClassID
+DisciplineCourseYearID FK -> trx_Discipline_CourseYear.DisciplineCourseYearID
+ProfessorID FK -> Tbl_Professors.ProfessorID
+RoomID FK -> Tbl_Rooms.RoomID
+CalendarID FK -> Tbl_SchoolCalendar.CalendarID
+StartTime
+EndTime
+Status
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
 
-Relationships:
+Stores generated or manually created schedule records.
+
+Important:
 
 ```text
-Tbl_Classes 1 ─── N Tbl_GeneratedSchedule
-trx_Discipline_CourseYear 1 ─── N Tbl_GeneratedSchedule
-Tbl_Professors 1 ─── N Tbl_GeneratedSchedule
-Tbl_Rooms 1 ─── N Tbl_GeneratedSchedule
-Tbl_SchoolCalendar 1 ─── N Tbl_GeneratedSchedule
-Tbl_GeneratedSchedule 1 ─── N Tbl_AttendanceRecords
+The schedule does not point directly to Tbl_Disciplines.
+It points to trx_Discipline_CourseYear.
 ```
 
-Important note:
+This allows the schedule to know the exact course, school year, course year number, workload and practical configuration of the discipline.
 
-`Tbl_GeneratedSchedule` uses `DisciplineCourseYearID`, not `DisciplineID`.
+Allowed `Status` values:
 
-This allows the schedule to reference the exact discipline configuration for a specific course and school year.
+```text
+draft
+approved
+cancelled
+```
 
 ---
 
-### 4.11. `Tbl_AttendanceRecords`
-
-Stores student attendance punches.
+### `Tbl_AttendanceRecords`
 
 ```text
 Tbl_AttendanceRecords
-├── AttendanceRecordID PK
-├── StudentID FK
-├── ScheduleID FK
-├── PunchType
-├── PunchMethod
-├── PunchTime
-├── IsSynced
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
-```
-
-Relationships:
-
-```text
-Tbl_Students 1 ─── N Tbl_AttendanceRecords
-Tbl_GeneratedSchedule 1 ─── N Tbl_AttendanceRecords
-```
-
----
-
-## 5. Relationship Tables
-
----
-
-### 5.1. `trx_Discipline_CourseYear`
-
-Stores the workload configuration of a discipline for a specific course and school year.
-
-```text
-trx_Discipline_CourseYear
-├── DisciplineCourseYearID PK
-├── DisciplineID FK
-├── CourseID FK
-├── SchoolYearID FK
-├── CourseYearNumber
-├── TotalMinutes
-├── LessonDurationMinutes
-├── IsPractical
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
-```
-
-Example:
-
-```text
-Programming
-Course: TGEI
-School year: 2025/2026
-Course year number: 1
-Total minutes: 7200
-Lesson duration: 60
-Practical: true
-```
-
-Relationships:
-
-```text
-Tbl_Disciplines 1 ─── N trx_Discipline_CourseYear
-Tbl_Courses 1 ─── N trx_Discipline_CourseYear
-Tref_SchoolYears 1 ─── N trx_Discipline_CourseYear
-trx_Discipline_CourseYear 1 ─── N Tbl_GeneratedSchedule
-trx_Discipline_CourseYear N ─── N Tbl_Professors through trx_Professor_DisciplineCourseYear
-```
-
----
-
-### 5.2. `trx_Professor_DisciplineCourseYear`
-
-Assigns professors to specific discipline-course-year records.
-
-```text
-trx_Professor_DisciplineCourseYear
-├── ProfessorID PK FK
-├── DisciplineCourseYearID PK FK
-├── InsertUsername
-├── InsertDate
-├── ChangeUsername
-└── ChangeDate
-```
-
-Example:
-
-```text
-Professor: Miguel Ramos
-Discipline configuration: Programming - TGEI - 2025/2026 - Year 1
-```
-
-Relationships:
-
-```text
-Tbl_Professors 1 ─── N trx_Professor_DisciplineCourseYear
-trx_Discipline_CourseYear 1 ─── N trx_Professor_DisciplineCourseYear
-```
-
----
-
-## 6. Design Decisions
-
----
-
-### 6.1. Users and Professors Are Separated
-
-`Tbl_Users` stores authentication and identity information:
-
-```text
-FullName
-Email
-PasswordHash
-RoleID
-```
-
-`Tbl_Professors` stores professor-specific personal information:
-
-```text
-UserID
-PhotoPath
-GenderID
-Address
-PostalCode
-City
-Contact
-DateOfBirth
-```
-
-This avoids duplicating name and email in both tables.
-
----
-
-### 6.2. Courses and Classes Are Separated
-
-A course represents the general training programme.
-
-A class represents a specific group of students in a course and school year.
-
-Example:
-
-```text
-Course: TGEI
-Class: TGEI 1A
-School year: 2025/2026
-Course year number: 1
-```
-
----
-
-### 6.3. Disciplines and Workload Are Separated
-
-`Tbl_Disciplines` stores the general discipline catalogue.
-
-`trx_Discipline_CourseYear` stores the workload configuration.
-
-This is necessary because the same discipline can have different workloads depending on the course and school year.
-
-Example:
-
-```text
-Programming in TGEI Year 1 may have 7200 minutes.
-Programming in TGPSI Year 1 may have 8400 minutes.
-```
-
----
-
-### 6.4. Schedule Uses `DisciplineCourseYearID`
-
-`Tbl_GeneratedSchedule` does not reference `Tbl_Disciplines` directly.
-
-It references `trx_Discipline_CourseYear`.
-
-This makes the schedule more precise because it knows:
-
-- The discipline
-- The course
-- The school year
-- The course year number
-- The workload
-- Whether the discipline is practical or not
-
----
-
-### 6.5. Schedule Uses `CalendarID`
-
-`Tbl_GeneratedSchedule` references `Tbl_SchoolCalendar`.
-
-This allows the backend to validate whether a date is a school day before creating a schedule record.
-
----
-
-## 7. Schedule Validation Rules
-
-Before creating or updating a schedule record, the backend validates:
-
-- The class exists.
-- The discipline course year record exists.
-- The professor exists.
-- The room exists.
-- The calendar date exists.
-- The calendar date is a school day.
-- The class course matches the discipline course.
-- The class school year matches the discipline school year.
-- The class course year number matches the discipline course year number.
-- The professor is assigned to the selected discipline course year.
-- Practical disciplines are scheduled in practice rooms.
-- A class cannot have overlapping lessons.
-- A professor cannot have overlapping lessons.
-- A room cannot have overlapping lessons.
-
----
-
-## 8. Attendance Model
-
-Attendance records are connected to students and optionally to schedule records.
-
-Each attendance record stores:
-
-```text
-StudentID
-ScheduleID
+---------------------
+AttendanceRecordID PK
+StudentID FK -> Tbl_Students.StudentID
+ScheduleID FK -> Tbl_GeneratedSchedule.ScheduleID
 PunchType
 PunchMethod
 PunchTime
 IsSynced
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
 ```
+
+Stores student attendance punches.
 
 Allowed `PunchType` values:
 
@@ -784,7 +426,549 @@ manual
 
 ---
 
-## 9. Final Model Summary
+## Relationship Tables
+
+### `trx_Discipline_CourseYear`
+
+```text
+trx_Discipline_CourseYear
+-------------------------
+DisciplineCourseYearID PK
+DisciplineID FK -> Tbl_Disciplines.DisciplineID
+CourseID FK -> Tbl_Courses.CourseID
+SchoolYearID FK -> Tref_SchoolYears.SchoolYearID
+CourseYearNumber
+TotalMinutes
+LessonDurationMinutes
+IsPractical
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
+```
+
+Stores the workload configuration of a discipline for a specific course and school year.
+
+Example:
+
+```text
+Programming
+Course: TGEI
+School year: 2025/2026
+Course year number: 1
+Total minutes: 7200
+Lesson duration: 60
+Practical: true
+```
+
+This table exists because the same discipline can have different workloads depending on the course and school year.
+
+---
+
+### `trx_Professor_DisciplineCourseYear`
+
+```text
+trx_Professor_DisciplineCourseYear
+----------------------------------
+ProfessorID PK FK -> Tbl_Professors.ProfessorID
+DisciplineCourseYearID PK FK -> trx_Discipline_CourseYear.DisciplineCourseYearID
+InsertUsername
+InsertDate
+ChangeUsername
+ChangeDate
+```
+
+Assigns professors to specific discipline-course-year records.
+
+This is more precise than only saying:
+
+```text
+Professor teaches Programming
+```
+
+The new model says:
+
+```text
+Professor teaches Programming for TGEI in 2025/2026, Year 1
+```
+
+---
+
+## 2. Main Relationships
+
+```text
+Tref_UserRoles.RoleID
+    1 ─── N Tbl_Users.RoleID
+
+Tbl_Users.UserID
+    1 ─── 0..1 Tbl_Professors.UserID
+
+Tref_Gender.GenderID
+    1 ─── N Tbl_Students.GenderID
+
+Tref_Gender.GenderID
+    1 ─── N Tbl_Professors.GenderID
+
+Tref_SchoolYears.SchoolYearID
+    1 ─── N Tbl_Classes.SchoolYearID
+
+Tref_SchoolYears.SchoolYearID
+    1 ─── N Tbl_SchoolCalendar.SchoolYearID
+
+Tref_SchoolYears.SchoolYearID
+    1 ─── N Tbl_TeacherAvailability.SchoolYearID
+
+Tref_SchoolYears.SchoolYearID
+    1 ─── N trx_Discipline_CourseYear.SchoolYearID
+
+Tbl_Courses.CourseID
+    1 ─── N Tbl_Classes.CourseID
+
+Tbl_Courses.CourseID
+    1 ─── N trx_Discipline_CourseYear.CourseID
+
+Tbl_Classes.ClassID
+    1 ─── N Tbl_Students.ClassID
+
+Tbl_Classes.ClassID
+    1 ─── N Tbl_GeneratedSchedule.ClassID
+
+Tbl_Disciplines.DisciplineID
+    1 ─── N trx_Discipline_CourseYear.DisciplineID
+
+Tbl_Professors.ProfessorID
+    1 ─── N Tbl_TeacherAvailability.ProfessorID
+
+Tbl_Professors.ProfessorID
+    1 ─── N Tbl_GeneratedSchedule.ProfessorID
+
+Tbl_Professors.ProfessorID
+    1 ─── N trx_Professor_DisciplineCourseYear.ProfessorID
+
+trx_Discipline_CourseYear.DisciplineCourseYearID
+    1 ─── N trx_Professor_DisciplineCourseYear.DisciplineCourseYearID
+
+trx_Discipline_CourseYear.DisciplineCourseYearID
+    1 ─── N Tbl_GeneratedSchedule.DisciplineCourseYearID
+
+Tbl_Rooms.RoomID
+    1 ─── N Tbl_GeneratedSchedule.RoomID
+
+Tbl_SchoolCalendar.CalendarID
+    1 ─── N Tbl_GeneratedSchedule.CalendarID
+
+Tbl_GeneratedSchedule.ScheduleID
+    1 ─── N Tbl_AttendanceRecords.ScheduleID
+
+Tbl_Students.StudentID
+    1 ─── N Tbl_AttendanceRecords.StudentID
+```
+
+---
+
+## 3. Simplified Relationship Diagram
+
+```text
+Tref_UserRoles
+    └── Tbl_Users
+            └── Tbl_Professors
+                    ├── Tbl_TeacherAvailability
+                    ├── Tbl_GeneratedSchedule
+                    └── trx_Professor_DisciplineCourseYear
+
+Tref_Gender
+    ├── Tbl_Students
+    └── Tbl_Professors
+
+Tref_SchoolYears
+    ├── Tbl_Classes
+    ├── Tbl_SchoolCalendar
+    ├── Tbl_TeacherAvailability
+    └── trx_Discipline_CourseYear
+
+Tbl_Courses
+    ├── Tbl_Classes
+    └── trx_Discipline_CourseYear
+
+Tbl_Classes
+    ├── Tbl_Students
+    └── Tbl_GeneratedSchedule
+
+Tbl_Disciplines
+    └── trx_Discipline_CourseYear
+            ├── Tbl_GeneratedSchedule
+            └── trx_Professor_DisciplineCourseYear
+
+Tbl_Rooms
+    └── Tbl_GeneratedSchedule
+
+Tbl_SchoolCalendar
+    └── Tbl_GeneratedSchedule
+
+Tbl_GeneratedSchedule
+    └── Tbl_AttendanceRecords
+
+Tbl_Students
+    └── Tbl_AttendanceRecords
+```
+
+---
+
+## 4. Mermaid ER Diagram With Columns
+
+This diagram includes columns inside each table.
+
+```mermaid
+erDiagram
+
+    Tref_UserRoles {
+        INT RoleID PK
+        VARCHAR Name
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tref_Gender {
+        INT GenderID PK
+        VARCHAR Name
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tref_SchoolYears {
+        INT SchoolYearID PK
+        VARCHAR Name
+        DATE StartDate
+        DATE EndDate
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tbl_Users {
+        INT UserID PK
+        VARCHAR FullName
+        VARCHAR Email UK
+        VARCHAR PasswordHash
+        INT RoleID FK
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tbl_Courses {
+        INT CourseID PK
+        VARCHAR Code UK
+        VARCHAR Name
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tbl_Classes {
+        INT ClassID PK
+        VARCHAR Name
+        INT CourseID FK
+        INT SchoolYearID FK
+        INT CourseYearNumber
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tbl_Students {
+        INT StudentID PK
+        VARCHAR FullName
+        VARCHAR StudentNumber UK
+        VARCHAR CardUID UK
+        INT ClassID FK
+        VARCHAR PhotoPath
+        INT GenderID FK
+        VARCHAR Address
+        VARCHAR PostalCode
+        VARCHAR City
+        VARCHAR Contact
+        DATE DateOfBirth
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tbl_Professors {
+        INT ProfessorID PK
+        INT UserID FK
+        VARCHAR PhotoPath
+        INT GenderID FK
+        VARCHAR Address
+        VARCHAR PostalCode
+        VARCHAR City
+        VARCHAR Contact
+        DATE DateOfBirth
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tbl_Disciplines {
+        INT DisciplineID PK
+        VARCHAR Name
+        VARCHAR Code
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    trx_Discipline_CourseYear {
+        INT DisciplineCourseYearID PK
+        INT DisciplineID FK
+        INT CourseID FK
+        INT SchoolYearID FK
+        INT CourseYearNumber
+        INT TotalMinutes
+        INT LessonDurationMinutes
+        BOOLEAN IsPractical
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    trx_Professor_DisciplineCourseYear {
+        INT ProfessorID PK
+        INT DisciplineCourseYearID PK
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tbl_Rooms {
+        INT RoomID PK
+        VARCHAR Name
+        INT Capacity
+        BOOLEAN IsPracticeRoom
+        VARCHAR Location
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tbl_SchoolCalendar {
+        INT CalendarID PK
+        INT SchoolYearID FK
+        DATE CalendarDate
+        BOOLEAN IsSchoolDay
+        VARCHAR Description
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tbl_TeacherAvailability {
+        INT TeacherAvailabilityID PK
+        INT ProfessorID FK
+        INT SchoolYearID FK
+        VARCHAR DayOfWeek
+        TIME StartTime
+        TIME EndTime
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tbl_GeneratedSchedule {
+        INT ScheduleID PK
+        INT ClassID FK
+        INT DisciplineCourseYearID FK
+        INT ProfessorID FK
+        INT RoomID FK
+        INT CalendarID FK
+        TIME StartTime
+        TIME EndTime
+        VARCHAR Status
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tbl_AttendanceRecords {
+        INT AttendanceRecordID PK
+        INT StudentID FK
+        INT ScheduleID FK
+        VARCHAR PunchType
+        VARCHAR PunchMethod
+        DATETIME PunchTime
+        BOOLEAN IsSynced
+        VARCHAR InsertUsername
+        DATETIME InsertDate
+        VARCHAR ChangeUsername
+        DATETIME ChangeDate
+    }
+
+    Tref_UserRoles ||--o{ Tbl_Users : role
+
+    Tbl_Users ||--o| Tbl_Professors : user_profile
+
+    Tref_Gender ||--o{ Tbl_Students : student_gender
+    Tref_Gender ||--o{ Tbl_Professors : professor_gender
+
+    Tref_SchoolYears ||--o{ Tbl_Classes : school_year
+    Tref_SchoolYears ||--o{ Tbl_SchoolCalendar : calendar_year
+    Tref_SchoolYears ||--o{ Tbl_TeacherAvailability : availability_year
+    Tref_SchoolYears ||--o{ trx_Discipline_CourseYear : discipline_year
+
+    Tbl_Courses ||--o{ Tbl_Classes : course_classes
+    Tbl_Courses ||--o{ trx_Discipline_CourseYear : course_disciplines
+
+    Tbl_Classes ||--o{ Tbl_Students : class_students
+    Tbl_Classes ||--o{ Tbl_GeneratedSchedule : class_schedule
+
+    Tbl_Disciplines ||--o{ trx_Discipline_CourseYear : discipline_config
+
+    Tbl_Professors ||--o{ Tbl_TeacherAvailability : professor_availability
+    Tbl_Professors ||--o{ Tbl_GeneratedSchedule : professor_schedule
+    Tbl_Professors ||--o{ trx_Professor_DisciplineCourseYear : professor_assignment
+
+    trx_Discipline_CourseYear ||--o{ trx_Professor_DisciplineCourseYear : discipline_assignment
+    trx_Discipline_CourseYear ||--o{ Tbl_GeneratedSchedule : scheduled_discipline
+
+    Tbl_Rooms ||--o{ Tbl_GeneratedSchedule : room_schedule
+
+    Tbl_SchoolCalendar ||--o{ Tbl_GeneratedSchedule : calendar_schedule
+
+    Tbl_GeneratedSchedule ||--o{ Tbl_AttendanceRecords : schedule_attendance
+
+    Tbl_Students ||--o{ Tbl_AttendanceRecords : student_attendance
+```
+
+---
+
+## 5. Core Design Decisions
+
+### Users and Professors Are Separated
+
+`Tbl_Users` stores login and identity information:
+
+```text
+FullName
+Email
+PasswordHash
+RoleID
+```
+
+`Tbl_Professors` stores professor-specific information:
+
+```text
+UserID
+PhotoPath
+GenderID
+Address
+PostalCode
+City
+Contact
+DateOfBirth
+```
+
+This avoids duplicating the professor name and email.
+
+---
+
+### Courses and Classes Are Separated
+
+A course represents the general training programme.
+
+A class represents a specific group of students in a course and school year.
+
+Example:
+
+```text
+Course: TGEI
+Class: TGEI 1A
+School year: 2025/2026
+Course year number: 1
+```
+
+---
+
+### Disciplines and Workload Are Separated
+
+`Tbl_Disciplines` stores only the general discipline catalogue.
+
+`trx_Discipline_CourseYear` stores the workload configuration.
+
+This is necessary because the same discipline can have different workloads depending on the course and school year.
+
+Example:
+
+```text
+Programming in TGEI Year 1 may have 7200 minutes.
+Programming in TGPSI Year 1 may have 8400 minutes.
+```
+
+---
+
+### Schedule Uses `DisciplineCourseYearID`
+
+`Tbl_GeneratedSchedule` does not reference `Tbl_Disciplines` directly.
+
+It references `trx_Discipline_CourseYear`.
+
+This makes the schedule more precise because it knows:
+
+- The discipline
+- The course
+- The school year
+- The course year number
+- The workload
+- Whether the discipline is practical or not
+
+---
+
+### Schedule Uses `CalendarID`
+
+`Tbl_GeneratedSchedule` references `Tbl_SchoolCalendar`.
+
+This allows the backend to validate whether a date is a school day before creating a schedule record.
+
+---
+
+## 6. Schedule Validation Rules
+
+Before creating or updating a schedule record, the backend validates:
+
+- The class exists.
+- The discipline course year record exists.
+- The professor exists.
+- The room exists.
+- The calendar date exists.
+- The calendar date is a school day.
+- The class course matches the discipline course.
+- The class school year matches the discipline school year.
+- The class course year number matches the discipline course year number.
+- The professor is assigned to the selected discipline course year.
+- Practical disciplines are scheduled in practice rooms.
+- A class cannot have overlapping lessons.
+- A professor cannot have overlapping lessons.
+- A room cannot have overlapping lessons.
+
+---
+
+## 7. Final Summary
 
 The current model supports:
 
