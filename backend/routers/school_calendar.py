@@ -4,26 +4,9 @@ from mysql.connector import IntegrityError
 from auth import require_roles
 from db import get_connection
 from models import SchoolCalendarCreate, SchoolCalendarUpdate
+from utils import get_audit_username, model_to_dict
 
 router = APIRouter(prefix="/school-calendar", tags=["School Calendar"])
-
-
-def get_audit_username(current_user):
-    if isinstance(current_user, dict):
-        return (
-            current_user.get("email")
-            or current_user.get("Email")
-            or current_user.get("full_name")
-            or current_user.get("FullName")
-            or "api"
-        )
-    return "api"
-
-
-def model_to_dict(model):
-    if hasattr(model, "model_dump"):
-        return model.model_dump(exclude_unset=True)
-    return model.dict(exclude_unset=True)
 
 
 @router.get("")
@@ -50,6 +33,36 @@ def get_school_calendar(
             JOIN Tref_SchoolYears sy ON sc.SchoolYearID = sy.SchoolYearID
             ORDER BY sc.CalendarDate
         """)
+
+        return cursor.fetchall()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@router.get("/school-year/{school_year_id}")
+def get_school_calendar_by_school_year(
+    school_year_id: int,
+    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+):
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT
+                sc.CalendarID AS id,
+                sc.SchoolYearID AS school_year_id,
+                sy.Name AS school_year,
+                sc.CalendarDate AS calendar_date,
+                sc.IsSchoolDay AS is_school_day,
+                sc.Description AS description
+            FROM Tbl_SchoolCalendar sc
+            JOIN Tref_SchoolYears sy ON sc.SchoolYearID = sy.SchoolYearID
+            WHERE sc.SchoolYearID = %s
+            ORDER BY sc.CalendarDate
+        """, (school_year_id,))
 
         return cursor.fetchall()
 
@@ -93,36 +106,6 @@ def get_school_calendar_record(
             )
 
         return record
-
-    finally:
-        cursor.close()
-        connection.close()
-
-
-@router.get("/school-year/{school_year_id}")
-def get_school_calendar_by_school_year(
-    school_year_id: int,
-    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
-):
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
-
-    try:
-        cursor.execute("""
-            SELECT
-                sc.CalendarID AS id,
-                sc.SchoolYearID AS school_year_id,
-                sy.Name AS school_year,
-                sc.CalendarDate AS calendar_date,
-                sc.IsSchoolDay AS is_school_day,
-                sc.Description AS description
-            FROM Tbl_SchoolCalendar sc
-            JOIN Tref_SchoolYears sy ON sc.SchoolYearID = sy.SchoolYearID
-            WHERE sc.SchoolYearID = %s
-            ORDER BY sc.CalendarDate
-        """, (school_year_id,))
-
-        return cursor.fetchall()
 
     finally:
         cursor.close()

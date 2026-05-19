@@ -89,6 +89,8 @@ INSERT INTO Tbl_Classes (
 (3, 'TGPSI 1A', 2, 1, 1, 'seed'),
 (4, 'TCIB 2A', 3, 1, 2, 'seed');
 
+
+
 INSERT INTO Tbl_Users (
     UserID,
     FullName,
@@ -97,12 +99,12 @@ INSERT INTO Tbl_Users (
     RoleID,
     InsertUsername
 ) VALUES
-(1, 'System Administrator', 'admin@academia360.local', NULL, 1, 'seed'),
-(2, 'Laura Mendes', 'laura.mendes@academia360.local', NULL, 2, 'seed'),
-(3, 'Rita Almeida', 'rita.almeida@academia360.local', NULL, 3, 'seed'),
-(4, 'Miguel Ramos', 'miguel.ramos@academia360.local', NULL, 4, 'seed'),
-(5, 'Inês Duarte', 'ines.duarte@academia360.local', NULL, 4, 'seed'),
-(6, 'Pedro Neves', 'pedro.neves@academia360.local', NULL, 4, 'seed');
+(1, 'Admin User', 'admin@academia360.local', NULL, 1, 'seed'),
+(2, 'Director User', 'director@academia360.local', NULL, 2, 'seed'),
+(3, 'Secretary User', 'secretary@academia360.local', NULL, 3, 'seed'),
+(4, 'Daniel Martins', 'daniel.martins@academia360.local', NULL, 4, 'seed'),
+(5, 'Ana Costa', 'ana.costa@academia360.local', NULL, 4, 'seed'),
+(6, 'Carlos Ferreira', 'carlos.ferreira@academia360.local', NULL, 4, 'seed');
 
 INSERT INTO Tbl_Professors (
     ProfessorID,

@@ -4,23 +4,12 @@ from mysql.connector import IntegrityError
 from auth import require_roles
 from db import get_connection
 from models import ProfessorDisciplineCourseYearCreate
+from utils import get_audit_username
 
 router = APIRouter(
     prefix="/professor-discipline-course-years",
     tags=["Professor Discipline Course Years"]
 )
-
-
-def get_audit_username(current_user):
-    if isinstance(current_user, dict):
-        return (
-            current_user.get("email")
-            or current_user.get("Email")
-            or current_user.get("full_name")
-            or current_user.get("FullName")
-            or "api"
-        )
-    return "api"
 
 
 @router.get("")
@@ -75,7 +64,6 @@ def get_professor_discipline_course_years(
     finally:
         cursor.close()
         connection.close()
-
 
 
 @router.get("/professor/{professor_id}")
@@ -238,6 +226,7 @@ def get_professor_discipline_course_year(
     finally:
         cursor.close()
         connection.close()
+
 
 @router.post("")
 def create_professor_discipline_course_year(

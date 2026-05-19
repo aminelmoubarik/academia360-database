@@ -4,26 +4,9 @@ from mysql.connector import IntegrityError
 from auth import require_roles
 from db import get_connection
 from models import TeacherAvailabilityCreate, TeacherAvailabilityUpdate
+from utils import get_audit_username, model_to_dict
 
 router = APIRouter(prefix="/teacher-availability", tags=["Teacher Availability"])
-
-
-def get_audit_username(current_user):
-    if isinstance(current_user, dict):
-        return (
-            current_user.get("email")
-            or current_user.get("Email")
-            or current_user.get("full_name")
-            or current_user.get("FullName")
-            or "api"
-        )
-    return "api"
-
-
-def model_to_dict(model):
-    if hasattr(model, "model_dump"):
-        return model.model_dump(exclude_unset=True)
-    return model.dict(exclude_unset=True)
 
 
 def validate_time_range(start_time, end_time):
@@ -72,6 +55,40 @@ def get_teacher_availability(
         connection.close()
 
 
+@router.get("/professor/{professor_id}")
+def get_availability_by_professor(
+    professor_id: int,
+    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+):
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT
+                ta.TeacherAvailabilityID AS id,
+                ta.ProfessorID AS professor_id,
+                u.FullName AS professor_name,
+                ta.SchoolYearID AS school_year_id,
+                sy.Name AS school_year,
+                ta.DayOfWeek AS day_of_week,
+                ta.StartTime AS start_time,
+                ta.EndTime AS end_time
+            FROM Tbl_TeacherAvailability ta
+            JOIN Tbl_Professors p ON ta.ProfessorID = p.ProfessorID
+            JOIN Tbl_Users u ON p.UserID = u.UserID
+            JOIN Tref_SchoolYears sy ON ta.SchoolYearID = sy.SchoolYearID
+            WHERE ta.ProfessorID = %s
+            ORDER BY ta.DayOfWeek, ta.StartTime
+        """, (professor_id,))
+
+        return cursor.fetchall()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
 @router.get("/{availability_id}")
 def get_teacher_availability_record(
     availability_id: int,
@@ -112,40 +129,6 @@ def get_teacher_availability_record(
             )
 
         return record
-
-    finally:
-        cursor.close()
-        connection.close()
-
-
-@router.get("/professor/{professor_id}")
-def get_availability_by_professor(
-    professor_id: int,
-    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
-):
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
-
-    try:
-        cursor.execute("""
-            SELECT
-                ta.TeacherAvailabilityID AS id,
-                ta.ProfessorID AS professor_id,
-                u.FullName AS professor_name,
-                ta.SchoolYearID AS school_year_id,
-                sy.Name AS school_year,
-                ta.DayOfWeek AS day_of_week,
-                ta.StartTime AS start_time,
-                ta.EndTime AS end_time
-            FROM Tbl_TeacherAvailability ta
-            JOIN Tbl_Professors p ON ta.ProfessorID = p.ProfessorID
-            JOIN Tbl_Users u ON p.UserID = u.UserID
-            JOIN Tref_SchoolYears sy ON ta.SchoolYearID = sy.SchoolYearID
-            WHERE ta.ProfessorID = %s
-            ORDER BY ta.DayOfWeek, ta.StartTime
-        """, (professor_id,))
-
-        return cursor.fetchall()
 
     finally:
         cursor.close()

@@ -18,7 +18,6 @@ This project is part of the Academia360 Erasmus+ internship work.
 - python-jose
 - passlib
 - python-dotenv
-- python-multipart
 
 ---
 
@@ -50,9 +49,11 @@ The current backend includes:
 - CRUD routers for the main entities
 - JWT authentication
 - Role-based route protection
+- Swagger API documentation
+- `/auth/me` endpoint to verify the authenticated user
+- Shared utility functions in `utils.py`
 - Schedule validation logic
 - Attendance registration logic
-- Swagger API documentation
 
 ---
 
@@ -66,7 +67,9 @@ Login endpoint:
 POST /auth/login
 ```
 
-Swagger uses OAuth2. In the Swagger login form, the field is called `username`, but the API expects the user's email.
+Swagger uses OAuth2. In Swagger, the recommended login method is to use the **Authorize** button at the top of the page.
+
+In the Swagger login form, the field is called `username`, but the backend expects the user's email.
 
 Example:
 
@@ -75,22 +78,71 @@ username: admin@academia360.local
 password: admin
 ```
 
-After login, Swagger can use the generated Bearer token to access protected endpoints.
+Leave these fields empty:
+
+```text
+client_id
+client_secret
+```
+
+After login, Swagger stores the Bearer token automatically and uses it to access protected endpoints.
 
 ---
 
 ## Demo Login Users
 
-After running `create_demo_passwords.py`, these demo users can be used for testing:
+After running:
+
+```bash
+python create_demo_passwords.py
+```
+
+these demo users can be used for testing:
 
 | Role | Email | Password |
 |---|---|---|
 | Admin | `admin@academia360.local` | `admin` |
 | Director | `laura.mendes@academia360.local` | `director` |
 | Secretary | `rita.almeida@academia360.local` | `secretary` |
-| Professor | `miguel.ramos@academia360.local` | `professor` |
-| Professor | `ines.duarte@academia360.local` | `professor` |
-| Professor | `pedro.neves@academia360.local` | `professor` |
+| Professor | `daniel.martins@academia360.local` | `professor` |
+| Professor | `ana.costa@academia360.local` | `professor` |
+| Professor | `carlos.ferreira@academia360.local` | `professor` |
+
+Recommended first login for testing:
+
+```text
+username: admin@academia360.local
+password: admin
+```
+
+---
+
+## Authentication Test
+
+After logging in through Swagger, the authenticated user can be checked with:
+
+```text
+GET /auth/me
+```
+
+Expected response example:
+
+```json
+{
+  "user_id": 1,
+  "full_name": "System Administrator",
+  "email": "admin@academia360.local",
+  "role": "admin"
+}
+```
+
+If the request is made without a valid token, protected routes should return:
+
+```json
+{
+  "detail": "Not authenticated"
+}
+```
 
 ---
 
@@ -110,7 +162,7 @@ The database uses prefixes to quickly identify the purpose of each table.
 
 All tables include audit columns:
 
-```sql
+```text
 InsertUsername
 InsertDate
 ChangeUsername
@@ -169,14 +221,16 @@ Professor name and email are stored in `Tbl_Users`.
 
 `Tbl_Professors` only stores professor-specific information such as:
 
-- UserID
-- PhotoPath
-- GenderID
-- Address
-- PostalCode
-- City
-- Contact
-- DateOfBirth
+```text
+UserID
+PhotoPath
+GenderID
+Address
+PostalCode
+City
+Contact
+DateOfBirth
+```
 
 This avoids duplicating name and email in both `Tbl_Users` and `Tbl_Professors`.
 
@@ -280,6 +334,7 @@ backend/
 ├── auth.py
 ├── db.py
 ├── models.py
+├── utils.py
 ├── requirements.txt
 ├── create_demo_passwords.py
 │
@@ -306,6 +361,23 @@ backend/
 
 ---
 
+## Shared Utilities
+
+The backend includes a shared `utils.py` file.
+
+This file centralizes helper functions that were previously duplicated across routers.
+
+Current shared helpers:
+
+```python
+get_audit_username(current_user)
+model_to_dict(model)
+```
+
+This improves maintainability because common logic is now defined in one place instead of being repeated in multiple router files.
+
+---
+
 ## Database Files
 
 The database files are located in the `database` folder.
@@ -317,7 +389,9 @@ database/
 └── queries.sql
 ```
 
-### `schema.sql`
+---
+
+### schema.sql
 
 Creates the database structure.
 
@@ -330,7 +404,9 @@ It includes:
 - Audit columns
 - Table prefixes
 
-### `seed.sql`
+---
+
+### seed.sql
 
 Inserts demo data for testing.
 
@@ -353,7 +429,9 @@ It includes:
 - Generated schedules
 - Attendance records
 
-### `queries.sql`
+---
+
+### queries.sql
 
 Contains useful SQL queries to test and inspect the database.
 
@@ -372,6 +450,7 @@ It includes queries for:
 - Attendance summaries
 - Schedule conflicts
 - Audit fields
+- Foreign key relationships
 
 ---
 
@@ -620,6 +699,12 @@ SECRET_KEY=academia360-dev-secret-key
 
 There is also a `.env.example` file that can be used as a template.
 
+Important:
+
+```text
+.env must not be committed to GitHub.
+```
+
 ---
 
 ## Database Setup
@@ -646,13 +731,13 @@ database/seed.sql
 
 ### 4. Generate demo passwords
 
-From the `backend` folder, run:
+From the backend folder, run:
 
 ```bash
 python create_demo_passwords.py
 ```
 
-This will generate passwords for the demo users.
+This will generate hashed passwords for the demo users.
 
 ### 5. Optional: test database queries
 
@@ -668,7 +753,7 @@ This file helps verify that the database structure and relationships are working
 
 ## Running the API
 
-From inside the `backend` folder, run:
+From inside the backend folder, run:
 
 ```bash
 python -m uvicorn app:app --reload
@@ -690,19 +775,15 @@ http://127.0.0.1:8000/docs
 
 ## Swagger Login Flow
 
-1. Open Swagger:
+Open Swagger:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-2. Open:
+Click the **Authorize** button.
 
-```text
-POST /auth/login
-```
-
-3. Use one of the demo users.
+Use one of the demo users.
 
 Example:
 
@@ -711,9 +792,44 @@ username: admin@academia360.local
 password: admin
 ```
 
-4. Copy the generated access token or use the Swagger Authorize button.
+Leave empty:
 
-5. Test protected endpoints.
+```text
+client_id
+client_secret
+```
+
+Click **Authorize** and then **Close**.
+
+Then test protected endpoints.
+
+---
+
+## Recommended Swagger Test Order
+
+Recommended order for testing:
+
+```text
+GET /
+Authorize with admin user
+GET /auth/me
+GET /roles
+GET /genders
+GET /school-years
+GET /courses
+GET /classes
+GET /users
+GET /professors
+GET /students
+GET /rooms
+GET /disciplines
+GET /discipline-course-years
+GET /professor-discipline-course-years
+GET /teacher-availability
+GET /school-calendar
+GET /schedule
+GET /attendance
+```
 
 ---
 
@@ -902,42 +1018,15 @@ manual
 
 ---
 
-## Recommended Swagger Test Order
-
-Recommended order for testing:
-
-```text
-GET /
-POST /auth/login
-GET /roles
-GET /genders
-GET /school-years
-GET /courses
-GET /classes
-GET /users
-GET /professors
-GET /students
-GET /rooms
-GET /disciplines
-GET /discipline-course-years
-GET /professor-discipline-course-years
-GET /teacher-availability
-GET /school-calendar
-GET /schedule
-GET /attendance
-```
-
----
-
 ## Current Limitations
 
 The current version still has some limitations:
 
 - Large list endpoints do not have pagination yet.
-- Some helper functions are duplicated across routers.
 - `UserCreate` should be improved so the frontend sends `password` instead of `password_hash`.
 - The automatic schedule generation algorithm is not implemented yet.
 - The current schedule endpoint validates manual schedule creation but does not generate complete schedules automatically.
+- Current credentials are demo credentials and are only suitable for local development/testing.
 
 ---
 
@@ -946,11 +1035,11 @@ The current version still has some limitations:
 Recommended next development steps:
 
 1. Test all endpoints in Swagger.
-2. Refactor duplicated helper functions into `utils.py`.
-3. Update `UserCreate` to accept `password` instead of `password_hash`.
+2. Update `UserCreate` to accept `password` instead of `password_hash`.
+3. Hash user passwords inside the backend when creating or updating users.
 4. Add pagination to large list endpoints such as `/attendance`.
-5. Update the database documentation.
-6. Update the ER diagram.
+5. Update the database documentation if the schema changes again.
+6. Update the ER diagram if new relationships are added.
 7. Start designing the automatic schedule generation algorithm.
 8. Define hard and soft constraints for schedule generation.
 
@@ -974,3 +1063,5 @@ __pycache__/
 ## Notes
 
 This backend is currently focused on creating a solid database and API foundation before developing the frontend and the automatic schedule generation algorithm.
+
+The current authentication system uses JWT tokens and hashed passwords for demo users. This is suitable for local development and testing, but production deployment would require stronger credentials, a secure `SECRET_KEY`, HTTPS and a final review of user creation and role permissions.

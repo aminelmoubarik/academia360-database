@@ -3,7 +3,12 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from auth import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    authenticate_user,
+    create_access_token,
+    get_current_user
+)
 from models import TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -40,7 +45,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 
 @router.get("/me")
-def get_me():
-    return {
-        "message": "Use the Authorize button with your token to access protected routes"
-    }
+def get_me(current_user: dict = Depends(get_current_user)):
+    return current_user
+

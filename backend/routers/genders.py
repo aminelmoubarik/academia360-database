@@ -4,26 +4,9 @@ from mysql.connector import IntegrityError
 from auth import require_roles
 from db import get_connection
 from models import GenderCreate, GenderUpdate
+from utils import get_audit_username, model_to_dict
 
 router = APIRouter(prefix="/genders", tags=["Genders"])
-
-
-def get_audit_username(current_user):
-    if isinstance(current_user, dict):
-        return (
-            current_user.get("email")
-            or current_user.get("Email")
-            or current_user.get("full_name")
-            or current_user.get("FullName")
-            or "api"
-        )
-    return "api"
-
-
-def model_to_dict(model):
-    if hasattr(model, "model_dump"):
-        return model.model_dump(exclude_unset=True)
-    return model.dict(exclude_unset=True)
 
 
 @router.get("")
