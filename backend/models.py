@@ -43,14 +43,14 @@ class SchoolYearUpdate(BaseModel):
 class UserCreate(BaseModel):
     full_name: str
     email: str
-    password_hash: Optional[str] = None
+    password: str
     role_id: int
 
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
-    password_hash: Optional[str] = None
+    password: Optional[str] = None
     role_id: Optional[int] = None
 
 
@@ -159,7 +159,7 @@ class DisciplineUpdate(BaseModel):
 
 
 # ============================================================
-# DISCIPLINE COURSE YEAR
+# DISCIPLINE COURSE YEARS
 # ============================================================
 
 class DisciplineCourseYearCreate(BaseModel):
@@ -244,7 +244,7 @@ class TeacherAvailabilityUpdate(BaseModel):
 
 
 # ============================================================
-# GENERATED SCHEDULE
+# SCHEDULE
 # ============================================================
 
 class ScheduleCreate(BaseModel):

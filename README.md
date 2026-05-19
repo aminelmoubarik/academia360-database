@@ -18,6 +18,7 @@ This project is part of the Academia360 Erasmus+ internship work.
 - python-jose
 - passlib
 - python-dotenv
+- python-multipart
 
 ---
 
@@ -52,6 +53,8 @@ The current backend includes:
 - Swagger API documentation
 - `/auth/me` endpoint to verify the authenticated user
 - Shared utility functions in `utils.py`
+- Secure user creation using `password` instead of `password_hash`
+- Password hashing inside the backend when creating or updating users
 - Schedule validation logic
 - Attendance registration logic
 
@@ -102,8 +105,8 @@ these demo users can be used for testing:
 | Role | Email | Password |
 |---|---|---|
 | Admin | `admin@academia360.local` | `admin` |
-| Director | `laura.mendes@academia360.local` | `director` |
-| Secretary | `rita.almeida@academia360.local` | `secretary` |
+| Director | `director@academia360.local` | `director` |
+| Secretary | `secretary@academia360.local` | `secretary` |
 | Professor | `daniel.martins@academia360.local` | `professor` |
 | Professor | `ana.costa@academia360.local` | `professor` |
 | Professor | `carlos.ferreira@academia360.local` | `professor` |
@@ -130,7 +133,7 @@ Expected response example:
 ```json
 {
   "user_id": 1,
-  "full_name": "System Administrator",
+  "full_name": "Admin User",
   "email": "admin@academia360.local",
   "role": "admin"
 }
@@ -142,6 +145,44 @@ If the request is made without a valid token, protected routes should return:
 {
   "detail": "Not authenticated"
 }
+```
+
+---
+
+## User Password Handling
+
+User creation and password updates are handled securely by the backend.
+
+The frontend or Swagger sends a plain `password` field:
+
+```json
+{
+  "full_name": "Test Password User",
+  "email": "test.password.user@academia360.local",
+  "password": "test123",
+  "role_id": 3
+}
+```
+
+The backend hashes the password internally and stores the result in:
+
+```text
+Tbl_Users.PasswordHash
+```
+
+The API does not require the client to send `password_hash`.
+
+When checking users with:
+
+```text
+GET /users
+```
+
+the API does not return the password hash. It only returns a safe password status:
+
+```text
+PASSWORD SET
+NO PASSWORD
 ```
 
 ---
@@ -835,6 +876,33 @@ GET /attendance
 
 ## Example Requests
 
+### Create a User
+
+```json
+{
+  "full_name": "Test Password User",
+  "email": "test.password.user@academia360.local",
+  "password": "test123",
+  "role_id": 3
+}
+```
+
+The backend hashes the password before saving it in the database.
+
+---
+
+### Update a User Password
+
+```json
+{
+  "password": "newpass123"
+}
+```
+
+The backend hashes the new password before updating `Tbl_Users.PasswordHash`.
+
+---
+
 ### Create a Course
 
 ```json
@@ -1023,7 +1091,7 @@ manual
 The current version still has some limitations:
 
 - Large list endpoints do not have pagination yet.
-- `UserCreate` should be improved so the frontend sends `password` instead of `password_hash`.
+- Database connections are still opened and closed manually inside each router function.
 - The automatic schedule generation algorithm is not implemented yet.
 - The current schedule endpoint validates manual schedule creation but does not generate complete schedules automatically.
 - Current credentials are demo credentials and are only suitable for local development/testing.
@@ -1034,14 +1102,13 @@ The current version still has some limitations:
 
 Recommended next development steps:
 
-1. Test all endpoints in Swagger.
-2. Update `UserCreate` to accept `password` instead of `password_hash`.
-3. Hash user passwords inside the backend when creating or updating users.
-4. Add pagination to large list endpoints such as `/attendance`.
-5. Update the database documentation if the schema changes again.
-6. Update the ER diagram if new relationships are added.
-7. Start designing the automatic schedule generation algorithm.
-8. Define hard and soft constraints for schedule generation.
+1. Refactor database connection handling using a FastAPI dependency such as `Depends(get_db)`.
+2. Add pagination to large list endpoints such as `/attendance`, `/students` and `/schedule`.
+3. Continue testing role permissions in Swagger.
+4. Update the database documentation if the schema changes again.
+5. Update the ER diagram if new relationships are added.
+6. Start designing the automatic schedule generation algorithm.
+7. Define hard and soft constraints for schedule generation.
 
 ---
 
@@ -1064,4 +1131,6 @@ __pycache__/
 
 This backend is currently focused on creating a solid database and API foundation before developing the frontend and the automatic schedule generation algorithm.
 
-The current authentication system uses JWT tokens and hashed passwords for demo users. This is suitable for local development and testing, but production deployment would require stronger credentials, a secure `SECRET_KEY`, HTTPS and a final review of user creation and role permissions.
+The current authentication system uses JWT tokens and hashed passwords. Passwords are created or updated through the backend using a plain `password` field, then securely stored as hashes in the database.
+
+This authentication system is suitable for local development and testing, but production deployment would require stronger credentials, a secure `SECRET_KEY`, HTTPS and a final review of role permissions.

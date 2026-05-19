@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
-from auth import require_roles
+from auth import get_password_hash, require_roles
 from db import get_connection
 from models import UserCreate, UserUpdate
 from utils import get_audit_username, model_to_dict
@@ -18,6 +18,14 @@ def validate_role_exists(cursor, role_id: int):
 
     if cursor.fetchone() is None:
         raise HTTPException(status_code=404, detail="Role not found")
+
+
+def validate_password(password: str):
+    if not password or len(password) < 6:
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least 6 characters"
+        )
 
 
 @router.get("")
@@ -103,10 +111,13 @@ def create_user(
     user: UserCreate,
     current_user=Depends(require_roles(["admin", "director"]))
 ):
+    validate_password(user.password)
+
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
+    password_hash = get_password_hash(user.password)
 
     try:
         validate_role_exists(cursor, user.role_id)
@@ -123,7 +134,7 @@ def create_user(
         """, (
             user.full_name,
             user.email,
-            user.password_hash,
+            password_hash,
             user.role_id,
             audit_username
         ))
@@ -173,10 +184,14 @@ def update_user(
         if "role_id" in data:
             validate_role_exists(cursor, data["role_id"])
 
+        if "password" in data:
+            validate_password(data["password"])
+            data["password"] = get_password_hash(data["password"])
+
         field_map = {
             "full_name": "FullName",
             "email": "Email",
-            "password_hash": "PasswordHash",
+            "password": "PasswordHash",
             "role_id": "RoleID"
         }
 
