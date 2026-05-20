@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import get_password_hash, require_roles
-from db import get_connection
+from db import get_db
 from models import UserCreate, UserUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -30,9 +30,9 @@ def validate_password(password: str):
 
 @router.get("")
 def get_users(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -61,15 +61,14 @@ def get_users(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{user_id}")
 def get_user(
     user_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -103,17 +102,16 @@ def get_user(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_user(
     user: UserCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director"]))
 ):
     validate_password(user.password)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -152,13 +150,13 @@ def create_user(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{user_id}")
 def update_user(
     user_id: int,
     user: UserUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director"]))
 ):
     data = model_to_dict(user)
@@ -166,7 +164,6 @@ def update_user(
     if not data:
         raise HTTPException(status_code=400, detail="No fields provided for update")
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -230,15 +227,14 @@ def update_user(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{user_id}")
 def delete_user(
     user_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -266,4 +262,3 @@ def delete_user(
 
     finally:
         cursor.close()
-        connection.close()
