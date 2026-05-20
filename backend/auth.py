@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
@@ -9,11 +10,19 @@ from passlib.context import CryptContext
 
 from db import get_connection
 
-load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "academia360-dev-secret-key")
+env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY environment variable is not set")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
@@ -23,6 +32,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     if not hashed_password:
         return False
+
     return pwd_context.verify(plain_password, hashed_password)
 
 
@@ -30,7 +40,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def get_user_by_email(email: str):
+def get_user_by_email(email: str) -> dict | None:
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
@@ -43,7 +53,8 @@ def get_user_by_email(email: str):
                 u.PasswordHash AS password_hash,
                 r.Name AS role
             FROM Tbl_Users u
-            JOIN Tref_UserRoles r ON u.RoleID = r.RoleID
+            JOIN Tref_UserRoles r
+                ON u.RoleID = r.RoleID
             WHERE u.Email = %s
         """, (email,))
 
@@ -54,7 +65,7 @@ def get_user_by_email(email: str):
         connection.close()
 
 
-def authenticate_user(email: str, password: str):
+def authenticate_user(email: str, password: str) -> dict | None:
     user = get_user_by_email(email)
 
     if user is None:
@@ -66,7 +77,10 @@ def authenticate_user(email: str, password: str):
     return user
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
+def create_access_token(
+    data: dict,
+    expires_delta: timedelta | None = None
+) -> str:
     to_encode = data.copy()
 
     expire = datetime.now(timezone.utc) + (
@@ -78,7 +92,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate authentication credentials",
@@ -109,7 +123,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 def require_roles(allowed_roles: list[str]):
-    def role_checker(current_user: dict = Depends(get_current_user)):
+    def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
         if current_user["role"] not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

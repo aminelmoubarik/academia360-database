@@ -17,3 +17,12 @@ def get_connection():
         password=os.getenv("DB_PASSWORD", ""),
         database=os.getenv("DB_NAME", "academia360")
     )
+
+
+def get_db():
+    connection = get_connection()
+
+    try:
+        yield connection
+    finally:
+        connection.close()
