@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import ProfessorDisciplineCourseYearCreate
 from utils import get_audit_username
 
@@ -14,9 +14,9 @@ router = APIRouter(
 
 @router.get("")
 def get_professor_discipline_course_years(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -63,15 +63,14 @@ def get_professor_discipline_course_years(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/professor/{professor_id}")
 def get_disciplines_by_professor(
     professor_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -114,15 +113,14 @@ def get_disciplines_by_professor(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/discipline-course-year/{discipline_course_year_id}")
 def get_professors_by_discipline_course_year(
     discipline_course_year_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -157,16 +155,15 @@ def get_professors_by_discipline_course_year(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{professor_id}/{discipline_course_year_id}")
 def get_professor_discipline_course_year(
     professor_id: int,
     discipline_course_year_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -225,15 +222,14 @@ def get_professor_discipline_course_year(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_professor_discipline_course_year(
     relation: ProfessorDisciplineCourseYearCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -266,16 +262,15 @@ def create_professor_discipline_course_year(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{professor_id}/{discipline_course_year_id}")
 def delete_professor_discipline_course_year(
     professor_id: int,
     discipline_course_year_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -311,4 +306,3 @@ def delete_professor_discipline_course_year(
 
     finally:
         cursor.close()
-        connection.close()

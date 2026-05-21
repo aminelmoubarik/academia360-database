@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import ProfessorCreate, ProfessorUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -11,9 +11,9 @@ router = APIRouter(prefix="/professors", tags=["Professors"])
 
 @router.get("")
 def get_professors(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -79,15 +79,14 @@ def get_professors(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{professor_id}")
 def get_professor(
     professor_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -158,15 +157,14 @@ def get_professor(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_professor(
     professor: ProfessorCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -210,13 +208,13 @@ def create_professor(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{professor_id}")
 def update_professor(
     professor_id: int,
     professor: ProfessorUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(professor)
@@ -253,7 +251,6 @@ def update_professor(
 
     values.append(professor_id)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -279,15 +276,14 @@ def update_professor(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{professor_id}")
 def delete_professor(
     professor_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -315,4 +311,3 @@ def delete_professor(
 
     finally:
         cursor.close()
-        connection.close()

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import SchoolYearCreate, SchoolYearUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -11,9 +11,9 @@ router = APIRouter(prefix="/school-years", tags=["School Years"])
 
 @router.get("")
 def get_school_years(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -35,15 +35,14 @@ def get_school_years(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{school_year_id}")
 def get_school_year(
     school_year_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -70,12 +69,12 @@ def get_school_year(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_school_year(
     school_year: SchoolYearCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     if school_year.end_date <= school_year.start_date:
@@ -84,7 +83,6 @@ def create_school_year(
             detail="End date must be greater than start date"
         )
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -118,13 +116,13 @@ def create_school_year(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{school_year_id}")
 def update_school_year(
     school_year_id: int,
     school_year: SchoolYearUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(school_year)
@@ -156,7 +154,6 @@ def update_school_year(
 
     values.append(school_year_id)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -182,15 +179,14 @@ def update_school_year(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{school_year_id}")
 def delete_school_year(
     school_year_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -218,4 +214,3 @@ def delete_school_year(
 
     finally:
         cursor.close()
-        connection.close()

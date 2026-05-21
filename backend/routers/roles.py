@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import RoleCreate, RoleUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -11,9 +11,9 @@ router = APIRouter(prefix="/roles", tags=["Roles"])
 
 @router.get("")
 def get_roles(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -33,15 +33,14 @@ def get_roles(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{role_id}")
 def get_role(
     role_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -66,15 +65,14 @@ def get_role(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_role(
     role: RoleCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -104,13 +102,13 @@ def create_role(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{role_id}")
 def update_role(
     role_id: int,
     role: RoleUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director"]))
 ):
     data = model_to_dict(role)
@@ -140,7 +138,6 @@ def update_role(
 
     values.append(role_id)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -166,15 +163,14 @@ def update_role(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{role_id}")
 def delete_role(
     role_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -202,4 +198,3 @@ def delete_role(
 
     finally:
         cursor.close()
-        connection.close()

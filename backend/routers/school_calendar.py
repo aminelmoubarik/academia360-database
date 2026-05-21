@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import SchoolCalendarCreate, SchoolCalendarUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -11,9 +11,9 @@ router = APIRouter(prefix="/school-calendar", tags=["School Calendar"])
 
 @router.get("")
 def get_school_calendar(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -38,15 +38,14 @@ def get_school_calendar(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/school-year/{school_year_id}")
 def get_school_calendar_by_school_year(
     school_year_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -68,15 +67,14 @@ def get_school_calendar_by_school_year(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{calendar_id}")
 def get_school_calendar_record(
     calendar_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -109,15 +107,14 @@ def get_school_calendar_record(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_school_calendar_record(
     calendar: SchoolCalendarCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -153,13 +150,13 @@ def create_school_calendar_record(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{calendar_id}")
 def update_school_calendar_record(
     calendar_id: int,
     calendar: SchoolCalendarUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(calendar)
@@ -192,7 +189,6 @@ def update_school_calendar_record(
 
     values.append(calendar_id)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -221,15 +217,14 @@ def update_school_calendar_record(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{calendar_id}")
 def delete_school_calendar_record(
     calendar_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -260,4 +255,3 @@ def delete_school_calendar_record(
 
     finally:
         cursor.close()
-        connection.close()

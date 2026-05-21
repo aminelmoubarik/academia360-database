@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import GenderCreate, GenderUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -11,9 +11,9 @@ router = APIRouter(prefix="/genders", tags=["Genders"])
 
 @router.get("")
 def get_genders(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -33,15 +33,14 @@ def get_genders(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{gender_id}")
 def get_gender(
     gender_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -66,15 +65,14 @@ def get_gender(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_gender(
     gender: GenderCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -104,13 +102,13 @@ def create_gender(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{gender_id}")
 def update_gender(
     gender_id: int,
     gender: GenderUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(gender)
@@ -140,7 +138,6 @@ def update_gender(
 
     values.append(gender_id)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -166,15 +163,14 @@ def update_gender(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{gender_id}")
 def delete_gender(
     gender_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -202,4 +198,3 @@ def delete_gender(
 
     finally:
         cursor.close()
-        connection.close()

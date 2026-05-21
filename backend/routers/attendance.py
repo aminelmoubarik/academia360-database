@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import AttendanceCreate, AttendanceUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -36,9 +36,9 @@ def validate_schedule_exists(cursor, schedule_id: int | None):
 
 @router.get("")
 def get_attendance_records(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -90,15 +90,14 @@ def get_attendance_records(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/student/{student_id}")
 def get_attendance_by_student(
     student_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -138,15 +137,14 @@ def get_attendance_by_student(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/schedule/{schedule_id}")
 def get_attendance_by_schedule(
     schedule_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -186,15 +184,14 @@ def get_attendance_by_schedule(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{attendance_id}")
 def get_attendance_record(
     attendance_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -254,15 +251,14 @@ def get_attendance_record(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_attendance_record(
     attendance: AttendanceCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -303,13 +299,13 @@ def create_attendance_record(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{attendance_id}")
 def update_attendance_record(
     attendance_id: int,
     attendance: AttendanceUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(attendance)
@@ -317,7 +313,6 @@ def update_attendance_record(
     if not data:
         raise HTTPException(status_code=400, detail="No fields provided for update")
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -384,15 +379,14 @@ def update_attendance_record(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{attendance_id}")
 def delete_attendance_record(
     attendance_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -423,4 +417,3 @@ def delete_attendance_record(
 
     finally:
         cursor.close()
-        connection.close()

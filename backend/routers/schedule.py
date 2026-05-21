@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import ScheduleCreate, ScheduleUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -258,9 +258,9 @@ def validate_schedule_conflicts(
 
 @router.get("")
 def get_schedule(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -315,15 +315,14 @@ def get_schedule(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/class/{class_id}")
 def get_schedule_by_class(
     class_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -361,15 +360,14 @@ def get_schedule_by_class(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/professor/{professor_id}")
 def get_schedule_by_professor(
     professor_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -407,15 +405,14 @@ def get_schedule_by_professor(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/room/{room_id}")
 def get_schedule_by_room(
     room_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -453,15 +450,14 @@ def get_schedule_by_room(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{schedule_id}")
 def get_schedule_record(
     schedule_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -521,19 +517,17 @@ def get_schedule_record(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_schedule_record(
     schedule: ScheduleCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     validate_time_range(schedule.start_time, schedule.end_time)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
-
     audit_username = get_audit_username(current_user)
 
     try:
@@ -594,13 +588,13 @@ def create_schedule_record(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{schedule_id}")
 def update_schedule_record(
     schedule_id: int,
     schedule: ScheduleUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(schedule)
@@ -608,9 +602,7 @@ def update_schedule_record(
     if not data:
         raise HTTPException(status_code=400, detail="No fields provided for update")
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
-
     audit_username = get_audit_username(current_user)
 
     try:
@@ -703,15 +695,14 @@ def update_schedule_record(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{schedule_id}")
 def delete_schedule_record(
     schedule_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -739,4 +730,3 @@ def delete_schedule_record(
 
     finally:
         cursor.close()
-        connection.close()

@@ -1,17 +1,5 @@
 USE academia360;
 
--- ============================================================
--- ACADEMIA360 - USEFUL DATABASE QUERIES
--- ============================================================
--- This file contains useful SQL queries to test and inspect
--- the Academia360 database after running schema.sql and seed.sql.
--- ============================================================
-
-
--- ============================================================
--- 1. BASIC DATABASE CHECKS
--- ============================================================
-
 SELECT 'Academia360 database is working' AS status;
 
 SELECT DATABASE() AS current_database;
@@ -21,11 +9,6 @@ SELECT
 FROM information_schema.TABLES
 WHERE TABLE_SCHEMA = 'academia360'
 ORDER BY TABLE_NAME;
-
-
--- ============================================================
--- 2. TABLE ROW COUNTS
--- ============================================================
 
 SELECT 'Tref_UserRoles' AS table_name, COUNT(*) AS total_records FROM Tref_UserRoles
 UNION ALL
@@ -59,11 +42,6 @@ SELECT 'Tbl_GeneratedSchedule', COUNT(*) FROM Tbl_GeneratedSchedule
 UNION ALL
 SELECT 'Tbl_AttendanceRecords', COUNT(*) FROM Tbl_AttendanceRecords;
 
-
--- ============================================================
--- 3. REFERENCE TABLES
--- ============================================================
-
 SELECT
     RoleID AS id,
     Name AS name,
@@ -96,11 +74,6 @@ SELECT
 FROM Tref_SchoolYears
 ORDER BY StartDate;
 
-
--- ============================================================
--- 4. USERS AND AUTHENTICATION
--- ============================================================
-
 SELECT
     u.UserID AS id,
     u.FullName AS full_name,
@@ -118,19 +91,6 @@ FROM Tbl_Users u
 JOIN Tref_UserRoles r ON u.RoleID = r.RoleID
 ORDER BY u.UserID;
 
--- Demo login users after running create_demo_passwords.py:
--- admin@academia360.local / admin
--- laura.mendes@academia360.local / director
--- rita.almeida@academia360.local / secretary
--- miguel.ramos@academia360.local / professor
--- ines.duarte@academia360.local / professor
--- pedro.neves@academia360.local / professor
-
-
--- ============================================================
--- 5. COURSES
--- ============================================================
-
 SELECT
     CourseID AS id,
     Code AS code,
@@ -141,11 +101,6 @@ SELECT
     ChangeDate AS change_date
 FROM Tbl_Courses
 ORDER BY CourseID;
-
-
--- ============================================================
--- 6. CLASSES WITH COURSE AND SCHOOL YEAR
--- ============================================================
 
 SELECT
     cl.ClassID AS id,
@@ -164,11 +119,6 @@ FROM Tbl_Classes cl
 JOIN Tbl_Courses c ON cl.CourseID = c.CourseID
 JOIN Tref_SchoolYears sy ON cl.SchoolYearID = sy.SchoolYearID
 ORDER BY cl.ClassID;
-
-
--- ============================================================
--- 7. STUDENTS WITH CLASS, COURSE, SCHOOL YEAR AND GENDER
--- ============================================================
 
 SELECT
     s.StudentID AS id,
@@ -201,11 +151,6 @@ LEFT JOIN Tref_SchoolYears sy ON cl.SchoolYearID = sy.SchoolYearID
 LEFT JOIN Tref_Gender g ON s.GenderID = g.GenderID
 ORDER BY s.StudentID;
 
-
--- ============================================================
--- 8. STUDENTS BY CLASS
--- ============================================================
-
 SELECT
     cl.ClassID AS class_id,
     cl.Name AS class_name,
@@ -221,11 +166,6 @@ JOIN Tbl_Classes cl ON s.ClassID = cl.ClassID
 JOIN Tbl_Courses c ON cl.CourseID = c.CourseID
 JOIN Tref_SchoolYears sy ON cl.SchoolYearID = sy.SchoolYearID
 ORDER BY cl.Name, s.FullName;
-
-
--- ============================================================
--- 9. STUDENT COUNT BY CLASS
--- ============================================================
 
 SELECT
     cl.ClassID AS class_id,
@@ -243,11 +183,6 @@ GROUP BY
     c.Code,
     sy.Name
 ORDER BY cl.ClassID;
-
-
--- ============================================================
--- 10. PROFESSORS WITH USER, ROLE AND GENDER
--- ============================================================
 
 SELECT
     p.ProfessorID AS id,
@@ -273,11 +208,6 @@ JOIN Tref_UserRoles r ON u.RoleID = r.RoleID
 LEFT JOIN Tref_Gender g ON p.GenderID = g.GenderID
 ORDER BY p.ProfessorID;
 
-
--- ============================================================
--- 11. ROOMS
--- ============================================================
-
 SELECT
     RoomID AS id,
     Name AS name,
@@ -291,11 +221,6 @@ SELECT
 FROM Tbl_Rooms
 ORDER BY RoomID;
 
-
--- ============================================================
--- 12. DISCIPLINES CATALOGUE
--- ============================================================
-
 SELECT
     DisciplineID AS id,
     Name AS name,
@@ -306,11 +231,6 @@ SELECT
     ChangeDate AS change_date
 FROM Tbl_Disciplines
 ORDER BY DisciplineID;
-
-
--- ============================================================
--- 13. DISCIPLINE WORKLOAD BY COURSE AND SCHOOL YEAR
--- ============================================================
 
 SELECT
     dc.DisciplineCourseYearID AS id,
@@ -336,11 +256,6 @@ JOIN Tbl_Disciplines d ON dc.DisciplineID = d.DisciplineID
 JOIN Tbl_Courses c ON dc.CourseID = c.CourseID
 JOIN Tref_SchoolYears sy ON dc.SchoolYearID = sy.SchoolYearID
 ORDER BY dc.DisciplineCourseYearID;
-
-
--- ============================================================
--- 14. PROFESSOR ASSIGNMENTS TO DISCIPLINE COURSE YEARS
--- ============================================================
 
 SELECT
     pd.ProfessorID AS professor_id,
@@ -373,11 +288,6 @@ JOIN Tbl_Courses c ON dc.CourseID = c.CourseID
 JOIN Tref_SchoolYears sy ON dc.SchoolYearID = sy.SchoolYearID
 ORDER BY pd.ProfessorID, pd.DisciplineCourseYearID;
 
-
--- ============================================================
--- 15. PROFESSOR ASSIGNMENTS GROUPED BY PROFESSOR
--- ============================================================
-
 SELECT
     p.ProfessorID AS professor_id,
     u.FullName AS professor_name,
@@ -400,11 +310,6 @@ GROUP BY
     u.Email
 ORDER BY p.ProfessorID;
 
-
--- ============================================================
--- 16. SCHOOL CALENDAR
--- ============================================================
-
 SELECT
     sc.CalendarID AS id,
     sc.SchoolYearID AS school_year_id,
@@ -421,11 +326,6 @@ FROM Tbl_SchoolCalendar sc
 JOIN Tref_SchoolYears sy ON sc.SchoolYearID = sy.SchoolYearID
 ORDER BY sc.CalendarDate;
 
-
--- ============================================================
--- 17. NON-SCHOOL DAYS
--- ============================================================
-
 SELECT
     sc.CalendarID AS id,
     sy.Name AS school_year,
@@ -436,11 +336,6 @@ FROM Tbl_SchoolCalendar sc
 JOIN Tref_SchoolYears sy ON sc.SchoolYearID = sy.SchoolYearID
 WHERE sc.IsSchoolDay = FALSE
 ORDER BY sc.CalendarDate;
-
-
--- ============================================================
--- 18. TEACHER AVAILABILITY
--- ============================================================
 
 SELECT
     ta.TeacherAvailabilityID AS id,
@@ -461,11 +356,6 @@ JOIN Tbl_Professors p ON ta.ProfessorID = p.ProfessorID
 JOIN Tbl_Users u ON p.UserID = u.UserID
 JOIN Tref_SchoolYears sy ON ta.SchoolYearID = sy.SchoolYearID
 ORDER BY ta.ProfessorID, ta.DayOfWeek, ta.StartTime;
-
-
--- ============================================================
--- 19. GENERATED SCHEDULE
--- ============================================================
 
 SELECT
     gs.ScheduleID AS id,
@@ -509,11 +399,6 @@ JOIN Tbl_Rooms r ON gs.RoomID = r.RoomID
 JOIN Tbl_SchoolCalendar sc ON gs.CalendarID = sc.CalendarID
 ORDER BY sc.CalendarDate, gs.StartTime;
 
-
--- ============================================================
--- 20. SCHEDULE BY CLASS
--- ============================================================
-
 SELECT
     cl.ClassID AS class_id,
     cl.Name AS class_name,
@@ -533,11 +418,6 @@ JOIN Tbl_Users u ON p.UserID = u.UserID
 JOIN Tbl_Rooms r ON gs.RoomID = r.RoomID
 JOIN Tbl_SchoolCalendar sc ON gs.CalendarID = sc.CalendarID
 ORDER BY cl.Name, sc.CalendarDate, gs.StartTime;
-
-
--- ============================================================
--- 21. SCHEDULE BY PROFESSOR
--- ============================================================
 
 SELECT
     p.ProfessorID AS professor_id,
@@ -559,11 +439,6 @@ JOIN Tbl_Rooms r ON gs.RoomID = r.RoomID
 JOIN Tbl_SchoolCalendar sc ON gs.CalendarID = sc.CalendarID
 ORDER BY u.FullName, sc.CalendarDate, gs.StartTime;
 
-
--- ============================================================
--- 22. ROOM OCCUPATION
--- ============================================================
-
 SELECT
     r.RoomID AS room_id,
     r.Name AS room_name,
@@ -584,11 +459,6 @@ JOIN Tbl_Disciplines d ON dc.DisciplineID = d.DisciplineID
 JOIN Tbl_Professors p ON gs.ProfessorID = p.ProfessorID
 JOIN Tbl_Users u ON p.UserID = u.UserID
 ORDER BY r.Name, sc.CalendarDate, gs.StartTime;
-
-
--- ============================================================
--- 23. ATTENDANCE RECORDS
--- ============================================================
 
 SELECT
     ar.AttendanceRecordID AS id,
@@ -624,11 +494,6 @@ LEFT JOIN trx_Discipline_CourseYear dc ON gs.DisciplineCourseYearID = dc.Discipl
 LEFT JOIN Tbl_Disciplines d ON dc.DisciplineID = d.DisciplineID
 ORDER BY ar.PunchTime DESC;
 
-
--- ============================================================
--- 24. ATTENDANCE BY STUDENT
--- ============================================================
-
 SELECT
     s.StudentID AS student_id,
     s.FullName AS student_name,
@@ -647,11 +512,6 @@ LEFT JOIN trx_Discipline_CourseYear dc ON gs.DisciplineCourseYearID = dc.Discipl
 LEFT JOIN Tbl_Disciplines d ON dc.DisciplineID = d.DisciplineID
 ORDER BY s.FullName, ar.PunchTime DESC;
 
-
--- ============================================================
--- 25. ATTENDANCE SUMMARY BY STUDENT
--- ============================================================
-
 SELECT
     s.StudentID AS student_id,
     s.FullName AS student_name,
@@ -666,11 +526,6 @@ GROUP BY
     s.FullName,
     s.StudentNumber
 ORDER BY s.StudentID;
-
-
--- ============================================================
--- 26. ATTENDANCE SUMMARY BY CLASS
--- ============================================================
 
 SELECT
     cl.ClassID AS class_id,
@@ -689,11 +544,6 @@ GROUP BY
     cl.Name,
     c.Code
 ORDER BY cl.ClassID;
-
-
--- ============================================================
--- 27. SCHEDULE CONFLICT CHECK - CLASS OVERLAPS
--- ============================================================
 
 SELECT
     gs1.ScheduleID AS schedule_1,
@@ -714,11 +564,6 @@ JOIN Tbl_GeneratedSchedule gs2
 JOIN Tbl_Classes cl ON gs1.ClassID = cl.ClassID
 JOIN Tbl_SchoolCalendar sc ON gs1.CalendarID = sc.CalendarID
 ORDER BY sc.CalendarDate, cl.Name;
-
-
--- ============================================================
--- 28. SCHEDULE CONFLICT CHECK - PROFESSOR OVERLAPS
--- ============================================================
 
 SELECT
     gs1.ScheduleID AS schedule_1,
@@ -741,11 +586,6 @@ JOIN Tbl_Users u ON p.UserID = u.UserID
 JOIN Tbl_SchoolCalendar sc ON gs1.CalendarID = sc.CalendarID
 ORDER BY sc.CalendarDate, u.FullName;
 
-
--- ============================================================
--- 29. SCHEDULE CONFLICT CHECK - ROOM OVERLAPS
--- ============================================================
-
 SELECT
     gs1.ScheduleID AS schedule_1,
     gs2.ScheduleID AS schedule_2,
@@ -766,12 +606,6 @@ JOIN Tbl_Rooms r ON gs1.RoomID = r.RoomID
 JOIN Tbl_SchoolCalendar sc ON gs1.CalendarID = sc.CalendarID
 ORDER BY sc.CalendarDate, r.Name;
 
-
--- ============================================================
--- 30. PRACTICAL DISCIPLINES SCHEDULED IN NON-PRACTICE ROOMS
--- ============================================================
--- This query should return 0 records if validation is working.
-
 SELECT
     gs.ScheduleID AS schedule_id,
     d.Name AS discipline_name,
@@ -789,12 +623,6 @@ JOIN Tbl_SchoolCalendar sc ON gs.CalendarID = sc.CalendarID
 WHERE dc.IsPractical = TRUE
   AND r.IsPracticeRoom = FALSE;
 
-
--- ============================================================
--- 31. SCHEDULES CREATED ON NON-SCHOOL DAYS
--- ============================================================
--- This query should return 0 records if validation is working.
-
 SELECT
     gs.ScheduleID AS schedule_id,
     cl.Name AS class_name,
@@ -810,12 +638,6 @@ JOIN trx_Discipline_CourseYear dc ON gs.DisciplineCourseYearID = dc.DisciplineCo
 JOIN Tbl_Disciplines d ON dc.DisciplineID = d.DisciplineID
 JOIN Tbl_SchoolCalendar sc ON gs.CalendarID = sc.CalendarID
 WHERE sc.IsSchoolDay = FALSE;
-
-
--- ============================================================
--- 32. PROFESSORS SCHEDULED WITHOUT DISCIPLINE ASSIGNMENT
--- ============================================================
--- This query should return 0 records if validation is working.
 
 SELECT
     gs.ScheduleID AS schedule_id,
@@ -837,12 +659,6 @@ LEFT JOIN trx_Professor_DisciplineCourseYear pd
    AND gs.DisciplineCourseYearID = pd.DisciplineCourseYearID
 WHERE pd.ProfessorID IS NULL;
 
-
--- ============================================================
--- 33. CLASS AND DISCIPLINE COURSE MISMATCH
--- ============================================================
--- This query should return 0 records if validation is working.
-
 SELECT
     gs.ScheduleID AS schedule_id,
     cl.Name AS class_name,
@@ -857,12 +673,6 @@ JOIN Tbl_Courses discipline_course ON dc.CourseID = discipline_course.CourseID
 JOIN Tbl_Disciplines d ON dc.DisciplineID = d.DisciplineID
 WHERE cl.CourseID <> dc.CourseID;
 
-
--- ============================================================
--- 34. CLASS AND DISCIPLINE SCHOOL YEAR MISMATCH
--- ============================================================
--- This query should return 0 records if validation is working.
-
 SELECT
     gs.ScheduleID AS schedule_id,
     cl.Name AS class_name,
@@ -876,11 +686,6 @@ JOIN trx_Discipline_CourseYear dc ON gs.DisciplineCourseYearID = dc.DisciplineCo
 JOIN Tref_SchoolYears discipline_sy ON dc.SchoolYearID = discipline_sy.SchoolYearID
 JOIN Tbl_Disciplines d ON dc.DisciplineID = d.DisciplineID
 WHERE cl.SchoolYearID <> dc.SchoolYearID;
-
-
--- ============================================================
--- 35. AUDIT COLUMNS CHECK
--- ============================================================
 
 SELECT
     'Tbl_Users' AS table_name,
@@ -932,11 +737,6 @@ SELECT
 FROM Tbl_AttendanceRecords
 ORDER BY AttendanceRecordID;
 
-
--- ============================================================
--- 36. FOREIGN KEY RELATIONSHIPS
--- ============================================================
-
 SELECT
     TABLE_NAME AS table_name,
     COLUMN_NAME AS column_name,
@@ -946,11 +746,6 @@ FROM information_schema.KEY_COLUMN_USAGE
 WHERE TABLE_SCHEMA = 'academia360'
   AND REFERENCED_TABLE_NAME IS NOT NULL
 ORDER BY TABLE_NAME, COLUMN_NAME;
-
-
--- ============================================================
--- 37. USEFUL TEST IDS FROM SEED DATA
--- ============================================================
 
 SELECT
     'Roles' AS category,

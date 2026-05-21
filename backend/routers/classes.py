@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import ClassCreate, ClassUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -11,9 +11,9 @@ router = APIRouter(prefix="/classes", tags=["Classes"])
 
 @router.get("")
 def get_classes(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -41,15 +41,14 @@ def get_classes(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{class_id}")
 def get_class(
     class_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -82,12 +81,12 @@ def get_class(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_class(
     class_data: ClassCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     if class_data.course_year_number <= 0:
@@ -96,7 +95,6 @@ def create_class(
             detail="Course year number must be greater than 0"
         )
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -132,13 +130,13 @@ def create_class(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{class_id}")
 def update_class(
     class_id: int,
     class_data: ClassUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(class_data)
@@ -177,7 +175,6 @@ def update_class(
 
     values.append(class_id)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -203,15 +200,14 @@ def update_class(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{class_id}")
 def delete_class(
     class_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -239,4 +235,3 @@ def delete_class(
 
     finally:
         cursor.close()
-        connection.close()

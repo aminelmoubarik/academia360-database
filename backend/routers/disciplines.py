@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import DisciplineCreate, DisciplineUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -11,9 +11,9 @@ router = APIRouter(prefix="/disciplines", tags=["Disciplines"])
 
 @router.get("")
 def get_disciplines(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -34,15 +34,14 @@ def get_disciplines(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{discipline_id}")
 def get_discipline(
     discipline_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -68,15 +67,14 @@ def get_discipline(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_discipline(
     discipline: DisciplineCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -108,13 +106,13 @@ def create_discipline(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{discipline_id}")
 def update_discipline(
     discipline_id: int,
     discipline: DisciplineUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(discipline)
@@ -145,7 +143,6 @@ def update_discipline(
 
     values.append(discipline_id)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -171,15 +168,14 @@ def update_discipline(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{discipline_id}")
 def delete_discipline(
     discipline_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -207,4 +203,3 @@ def delete_discipline(
 
     finally:
         cursor.close()
-        connection.close()

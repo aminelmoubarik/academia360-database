@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import DisciplineCourseYearCreate, DisciplineCourseYearUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -34,9 +34,9 @@ def validate_positive_values(data):
 
 @router.get("")
 def get_discipline_course_years(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -71,15 +71,14 @@ def get_discipline_course_years(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{discipline_course_year_id}")
 def get_discipline_course_year(
     discipline_course_year_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -122,18 +121,17 @@ def get_discipline_course_year(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_discipline_course_year(
     discipline_course_year: DisciplineCourseYearCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(discipline_course_year)
     validate_positive_values(data)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -175,13 +173,13 @@ def create_discipline_course_year(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{discipline_course_year_id}")
 def update_discipline_course_year(
     discipline_course_year_id: int,
     discipline_course_year: DisciplineCourseYearUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(discipline_course_year)
@@ -219,7 +217,6 @@ def update_discipline_course_year(
 
     values.append(discipline_course_year_id)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -248,15 +245,14 @@ def update_discipline_course_year(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{discipline_course_year_id}")
 def delete_discipline_course_year(
     discipline_course_year_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -287,4 +283,3 @@ def delete_discipline_course_year(
 
     finally:
         cursor.close()
-        connection.close()

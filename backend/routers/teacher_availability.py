@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import TeacherAvailabilityCreate, TeacherAvailabilityUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -20,9 +20,9 @@ def validate_time_range(start_time, end_time):
 
 @router.get("")
 def get_teacher_availability(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -52,15 +52,14 @@ def get_teacher_availability(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/professor/{professor_id}")
 def get_availability_by_professor(
     professor_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -86,15 +85,14 @@ def get_availability_by_professor(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{availability_id}")
 def get_teacher_availability_record(
     availability_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -132,17 +130,16 @@ def get_teacher_availability_record(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_teacher_availability(
     availability: TeacherAvailabilityCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     validate_time_range(availability.start_time, availability.end_time)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -180,13 +177,13 @@ def create_teacher_availability(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{availability_id}")
 def update_teacher_availability(
     availability_id: int,
     availability: TeacherAvailabilityUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(availability)
@@ -223,7 +220,6 @@ def update_teacher_availability(
 
     values.append(availability_id)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -252,15 +248,14 @@ def update_teacher_availability(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{availability_id}")
 def delete_teacher_availability(
     availability_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -291,4 +286,3 @@ def delete_teacher_availability(
 
     finally:
         cursor.close()
-        connection.close()
