@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import RoomCreate, RoomUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -11,9 +11,9 @@ router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
 @router.get("")
 def get_rooms(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -36,15 +36,14 @@ def get_rooms(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{room_id}")
 def get_room(
     room_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -72,15 +71,14 @@ def get_room(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_room(
     room: RoomCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -116,13 +114,13 @@ def create_room(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{room_id}")
 def update_room(
     room_id: int,
     room: RoomUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(room)
@@ -155,7 +153,6 @@ def update_room(
 
     values.append(room_id)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -181,15 +178,14 @@ def update_room(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{room_id}")
 def delete_room(
     room_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -217,4 +213,3 @@ def delete_room(
 
     finally:
         cursor.close()
-        connection.close()

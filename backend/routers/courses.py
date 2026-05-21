@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
 
 from auth import require_roles
-from db import get_connection
+from db import get_db
 from models import CourseCreate, CourseUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -11,9 +11,9 @@ router = APIRouter(prefix="/courses", tags=["Courses"])
 
 @router.get("")
 def get_courses(
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -34,15 +34,14 @@ def get_courses(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.get("/{course_id}")
 def get_course(
     course_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -68,15 +67,14 @@ def get_course(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.post("")
 def create_course(
     course: CourseCreate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     audit_username = get_audit_username(current_user)
@@ -108,13 +106,13 @@ def create_course(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.put("/{course_id}")
 def update_course(
     course_id: int,
     course: CourseUpdate,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
     data = model_to_dict(course)
@@ -145,7 +143,6 @@ def update_course(
 
     values.append(course_id)
 
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -171,15 +168,14 @@ def update_course(
 
     finally:
         cursor.close()
-        connection.close()
 
 
 @router.delete("/{course_id}")
 def delete_course(
     course_id: int,
+    connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary"]))
 ):
-    connection = get_connection()
     cursor = connection.cursor(dictionary=True)
 
     try:
@@ -207,4 +203,3 @@ def delete_course(
 
     finally:
         cursor.close()
-        connection.close()
