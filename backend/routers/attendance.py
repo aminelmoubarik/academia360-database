@@ -367,7 +367,7 @@ def update_attendance_record(
         """, tuple(values))
 
         connection.commit()
-
+  
         return {
             "message": "Attendance record updated successfully",
             "attendance_record_id": attendance_id

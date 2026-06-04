@@ -1,7 +1,7 @@
 from datetime import date, time
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 
 
 # ============================================================
@@ -42,14 +42,14 @@ class SchoolYearUpdate(BaseModel):
 
 class UserCreate(BaseModel):
     full_name: str
-    email: str
+    email: EmailStr
     password: str
     role_id: int
 
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     password: Optional[str] = None
     role_id: Optional[int] = None
 
@@ -269,6 +269,19 @@ class ScheduleUpdate(BaseModel):
     status: Optional[Literal["draft", "approved", "cancelled"]] = None
 
 
+class ScheduleGenerateRequest(BaseModel):
+    class_id: int
+    start_date: date
+    end_date: date
+    school_start: time = time(9, 0)
+    school_end: time = time(17, 0)
+    replace_existing: bool = False
+    dry_run: bool = False
+    status: Literal["draft", "approved"] = "draft"
+    max_sessions_per_discipline: Optional[int] = Field(default=None, ge=1, le=50)
+    max_total_sessions: int = Field(default=300, ge=1, le=1000)
+
+
 # ============================================================
 # ATTENDANCE
 # ============================================================
@@ -294,7 +307,7 @@ class AttendanceUpdate(BaseModel):
 # ============================================================
 
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 

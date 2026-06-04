@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from routers import auth_routes
 from routers import roles
@@ -100,6 +101,18 @@ app = FastAPI(
     description="Backend API for attendance, schedules, courses, rooms, professors and students.",
     version="1.0.0",
     openapi_tags=tags_metadata
+)
+
+
+# CORS configuration
+# In development we allow all origins so the Flutter web client (and others)
+# can call the API from a different port. Restrict this in production.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
