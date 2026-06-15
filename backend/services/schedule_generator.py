@@ -63,17 +63,34 @@ def generate_time_slots(school_days, lesson_duration_minutes, school_start, scho
     return slots
 
 
-def is_teacher_available(candidate, teacher_availability):
+def build_availability_index(teacher_availability):
+    """Indexes availability windows by (professor_id, weekday).
+
+    The backtracking search calls is_teacher_available thousands of
+    times; a linear scan over every availability row made each check
+    O(n). With this index each lookup is O(1) on the dict plus a scan
+    of only that professor's windows for that weekday (typically 1-2
+    entries). For a school-sized dataset this cuts validation cost by
+    an order of magnitude.
+    """
+    index = {}
+    for availability in teacher_availability:
+        key = (availability["professor_id"], availability["weekday"])
+        index.setdefault(key, []).append(availability)
+    return index
+
+
+def is_teacher_available(candidate, availability_index):
     professor_id = candidate["professor_id"]
     weekday = candidate["date"].weekday()
     start_time = time_to_minutes(candidate["start_time"])
     end_time = time_to_minutes(candidate["end_time"])
 
-    for availability in teacher_availability:
-        if availability["professor_id"] != professor_id:
+    for availability in availability_index.get((professor_id, weekday), []):
+        if False:
             continue
 
-        if availability["weekday"] != weekday:
+        if False:
             continue
 
         availability_start = time_to_minutes(availability["start_time"])
@@ -142,7 +159,7 @@ def has_room_conflict(candidate, schedules):
     return False
 
 
-def is_valid_candidate(candidate, existing_schedule, temporary_solution, teacher_availability):
+def is_valid_candidate(candidate, existing_schedule, temporary_solution, availability_index):
     all_schedules = existing_schedule + temporary_solution
 
     if candidate["room_capacity"] < candidate["class_size"]:
@@ -151,7 +168,7 @@ def is_valid_candidate(candidate, existing_schedule, temporary_solution, teacher
     if candidate["is_practical"] and not candidate["room_is_practical"]:
         return False
 
-    if not is_teacher_available(candidate, teacher_availability):
+    if not is_teacher_available(candidate, availability_index):
         return False
 
     if has_teacher_conflict(candidate, all_schedules):
@@ -343,7 +360,7 @@ def build_valid_candidates(
     rooms,
     existing_schedule,
     temporary_solution,
-    teacher_availability
+    availability_index
 ):
     valid_candidates = []
 
@@ -357,7 +374,7 @@ def build_valid_candidates(
             candidate=candidate,
             existing_schedule=existing_schedule,
             temporary_solution=temporary_solution,
-            teacher_availability=teacher_availability
+            availability_index=availability_index
         ):
             candidate["score"] = calculate_candidate_score(
                 candidate=candidate,
@@ -380,6 +397,10 @@ def solve_with_backtracking(
 ):
     if not pending_sessions:
         return True, [], [], 0
+
+    # Construir el indice UNA sola vez para toda la busqueda:
+    # cada is_teacher_available pasa de O(n) a O(1).
+    availability_index = build_availability_index(teacher_availability)
 
     temporary_solution = []
     candidate_stack = []
@@ -407,7 +428,7 @@ def solve_with_backtracking(
                 rooms=rooms,
                 existing_schedule=existing_schedule,
                 temporary_solution=temporary_solution,
-                teacher_availability=teacher_availability
+                availability_index=availability_index
             )
 
             if not candidates:

@@ -674,7 +674,7 @@ JOIN Tbl_Disciplines d ON dc.DisciplineID = d.DisciplineID
 WHERE cl.CourseID <> dc.CourseID;
 
 SELECT
-    gs.ScheduleID AS schedule_id,
+    gs.ScheduleID AS schedule_id,a
     cl.Name AS class_name,
     class_sy.Name AS class_school_year,
     discipline_sy.Name AS discipline_school_year,
