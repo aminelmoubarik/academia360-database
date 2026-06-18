@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, time, datetime
 from typing import Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field
@@ -291,7 +291,27 @@ class AttendanceCreate(BaseModel):
     schedule_id: Optional[int] = None
     punch_type: Literal["in", "out"]
     punch_method: Literal["nfc", "rfid", "qr", "barcode", "manual"]
+    punch_time: Optional[datetime] = None
     is_synced: bool = True
+
+
+class AttendancePunchRequest(BaseModel):
+    card_uid: str
+    punch_type: Optional[Literal["in", "out"]] = None
+    punch_method: Literal["nfc", "rfid", "qr", "barcode", "manual"] = "nfc"
+    punch_time: Optional[datetime] = None
+    is_synced: bool = True
+
+
+class OfflineAttendancePunch(BaseModel):
+    card_uid: str
+    punch_type: Optional[Literal["in", "out"]] = None
+    punch_method: Literal["nfc", "rfid", "qr", "barcode", "manual"] = "nfc"
+    punch_time: Optional[datetime] = None
+
+
+class OfflineAttendanceSyncRequest(BaseModel):
+    records: list[OfflineAttendancePunch]
 
 
 class AttendanceUpdate(BaseModel):
@@ -300,6 +320,28 @@ class AttendanceUpdate(BaseModel):
     punch_type: Optional[Literal["in", "out"]] = None
     punch_method: Optional[Literal["nfc", "rfid", "qr", "barcode", "manual"]] = None
     is_synced: Optional[bool] = None
+
+
+# ============================================================
+# ATTENDANCE JUSTIFICATIONS
+# ============================================================
+
+class AttendanceJustificationCreate(BaseModel):
+    student_id: int
+    schedule_id: Optional[int] = None
+    justification_date: date
+    reason: str
+    status: Literal["pending", "approved", "rejected"] = "pending"
+    document_path: Optional[str] = None
+
+
+class AttendanceJustificationUpdate(BaseModel):
+    student_id: Optional[int] = None
+    schedule_id: Optional[int] = None
+    justification_date: Optional[date] = None
+    reason: Optional[str] = None
+    status: Optional[Literal["pending", "approved", "rejected"]] = None
+    document_path: Optional[str] = None
 
 
 # ============================================================

@@ -24,6 +24,7 @@ from routers import teacher_availability
 from routers import school_calendar
 from routers import schedule
 from routers import attendance
+from routers import attendance_justifications
 
 
 tags_metadata = [
@@ -45,6 +46,7 @@ tags_metadata = [
     {"name": "School Calendar", "description": "School calendar management."},
     {"name": "Schedule", "description": "Schedule management and validation."},
     {"name": "Attendance", "description": "Attendance record management."},
+    {"name": "Attendance Justifications", "description": "Absence justification management."},
 ]
 
 
@@ -137,3 +139,4 @@ app.include_router(teacher_availability.router)
 app.include_router(school_calendar.router)
 app.include_router(schedule.router)
 app.include_router(attendance.router)
+app.include_router(attendance_justifications.router)
