@@ -113,7 +113,7 @@ def get_school_calendar_record(
 def create_school_calendar_record(
     calendar: SchoolCalendarCreate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -157,7 +157,7 @@ def update_school_calendar_record(
     calendar_id: int,
     calendar: SchoolCalendarUpdate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     data = model_to_dict(calendar)
 
@@ -223,7 +223,7 @@ def update_school_calendar_record(
 def delete_school_calendar_record(
     calendar_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 

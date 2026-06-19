@@ -23,3 +23,7 @@ Thumbs.db
 # Cache
 .pytest_cache/
 .mypy_cache/
+# Local secret/one-off scripts
+backend/seed_railway_passwords.py
+*railway*password*.py
+run_migration_*.py

@@ -163,7 +163,7 @@ def get_professor(
 def create_professor(
     professor: ProfessorCreate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -215,7 +215,7 @@ def update_professor(
     professor_id: int,
     professor: ProfessorUpdate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     data = model_to_dict(professor)
 
@@ -282,7 +282,7 @@ def update_professor(
 def delete_professor(
     professor_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 

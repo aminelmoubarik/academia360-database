@@ -77,7 +77,7 @@ def get_room(
 def create_room(
     room: RoomCreate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -121,7 +121,7 @@ def update_room(
     room_id: int,
     room: RoomUpdate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     data = model_to_dict(room)
 
@@ -184,7 +184,7 @@ def update_room(
 def delete_room(
     room_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 

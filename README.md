@@ -41,6 +41,7 @@ The backend provides authentication, academic data management, attendance punchi
 - Attendance dashboard endpoint.
 - Automatic timetable generator.
 - Timetable readiness diagnostics.
+- Timetable export endpoints for PDF and Excel.
 - Admin recovery and demo user generation script.
 
 ---
@@ -76,6 +77,18 @@ Never commit:
 ```
 
 ---
+
+
+## Backend Permissions
+
+FastAPI routers use `require_roles(...)` to enforce role-based access. The current policy follows the Work Statement:
+
+- Admin: complete backend access.
+- Director: read reports/timetables/attendance and review justifications.
+- Secretary: manage students, classes, attendance and justifications.
+- Professor: view timetable/attendance data and register manual attendance.
+
+Administrative configuration, users, catalogue data and timetable generation are restricted to admin users.
 
 ## Demo Users and Admin Recovery
 
@@ -118,6 +131,8 @@ GET  /schedule
 GET  /schedule/class/{class_id}
 GET  /schedule/professor/{professor_id}
 GET  /schedule/room/{room_id}
+GET  /schedule/export/pdf
+GET  /schedule/export/excel
 ```
 
 The timetable generator considers:

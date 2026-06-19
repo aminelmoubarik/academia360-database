@@ -87,12 +87,6 @@ def is_teacher_available(candidate, availability_index):
     end_time = time_to_minutes(candidate["end_time"])
 
     for availability in availability_index.get((professor_id, weekday), []):
-        if False:
-            continue
-
-        if False:
-            continue
-
         availability_start = time_to_minutes(availability["start_time"])
         availability_end = time_to_minutes(availability["end_time"])
 
@@ -333,21 +327,21 @@ def find_input_conflicts(class_data, disciplines, professors, rooms):
             conflicts.append({
                 "class_id": class_data["class_id"],
                 "discipline": discipline["discipline_name"],
-                "reason": "No professor is assigned to this discipline course year"
+                "reason": "Nenhum professor está atribuído a esta disciplina/curso/ano"
             })
 
         if not valid_rooms:
             conflicts.append({
                 "class_id": class_data["class_id"],
                 "discipline": discipline["discipline_name"],
-                "reason": "No room has enough capacity or the required practical-room type"
+                "reason": "Nenhuma sala tem capacidade suficiente ou o tipo prático necessário"
             })
 
         if discipline["lesson_duration_minutes"] <= 0:
             conflicts.append({
                 "class_id": class_data["class_id"],
                 "discipline": discipline["discipline_name"],
-                "reason": "Lesson duration must be greater than zero"
+                "reason": "A duração da aula deve ser superior a zero"
             })
 
     return conflicts
@@ -414,7 +408,7 @@ def solve_with_backtracking(
             return False, temporary_solution, [{
                 "class_id": pending_sessions[session_index]["class_id"],
                 "discipline": pending_sessions[session_index]["discipline_name"],
-                "reason": f"Maximum backtracking attempts reached ({max_attempts})"
+                "reason": f"Limite máximo de tentativas de backtracking atingido ({max_attempts})"
             }], attempts
 
         if session_index == len(candidate_stack):
@@ -439,7 +433,7 @@ def solve_with_backtracking(
                         "class_id": session["class_id"],
                         "discipline": session["discipline_name"],
                         "session_number": session["session_number"],
-                        "reason": "No valid slot found"
+                        "reason": "Não foi encontrado nenhum horário válido"
                     }], attempts
 
                 session_index -= 1
@@ -456,7 +450,7 @@ def solve_with_backtracking(
             candidate_index_stack.pop()
 
             if session_index == 0:
-                reason = "No valid complete schedule found after trying all candidates"
+                reason = "Não foi possível encontrar um horário completo válido após testar todas as opções"
                 if last_failed_session is not None:
                     return False, temporary_solution, [{
                         "class_id": last_failed_session["class_id"],
@@ -530,8 +524,8 @@ def generate_schedule_algorithm(
             "conflicts": [{
                 "class_id": class_data["class_id"],
                 "reason": (
-                    f"Too many sessions requested ({len(pending_sessions)}). "
-                    f"Limit is {max_total_sessions}. Use a wider date range, reduce workload, "
+                    f"Foram pedidas demasiadas sessões ({len(pending_sessions)}). "
+                    f"O limite é {max_total_sessions}. Use a wider date range, reduce workload, "
                     "or use max_sessions_per_discipline for testing."
                 )
             }],
@@ -570,7 +564,7 @@ def generate_schedule_algorithm(
                     "conflicts": [{
                         "class_id": session["class_id"],
                         "discipline": session["discipline_name"],
-                        "reason": "No time slots available for this lesson duration"
+                        "reason": "Não há blocos horários disponíveis para esta duração de aula"
                     }],
                     "stats": {
                         "pending_sessions": len(pending_sessions),

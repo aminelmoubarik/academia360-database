@@ -75,7 +75,7 @@ def get_school_year(
 def create_school_year(
     school_year: SchoolYearCreate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     if school_year.end_date <= school_year.start_date:
         raise HTTPException(
@@ -123,7 +123,7 @@ def update_school_year(
     school_year_id: int,
     school_year: SchoolYearUpdate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     data = model_to_dict(school_year)
 
@@ -185,7 +185,7 @@ def update_school_year(
 def delete_school_year(
     school_year_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 

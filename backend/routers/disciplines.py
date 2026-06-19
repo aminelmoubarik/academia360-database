@@ -73,7 +73,7 @@ def get_discipline(
 def create_discipline(
     discipline: DisciplineCreate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -113,7 +113,7 @@ def update_discipline(
     discipline_id: int,
     discipline: DisciplineUpdate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     data = model_to_dict(discipline)
 
@@ -174,7 +174,7 @@ def update_discipline(
 def delete_discipline(
     discipline_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 

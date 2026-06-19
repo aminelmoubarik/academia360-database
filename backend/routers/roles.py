@@ -12,7 +12,7 @@ router = APIRouter(prefix="/roles", tags=["Roles"])
 @router.get("")
 def get_roles(
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -39,7 +39,7 @@ def get_roles(
 def get_role(
     role_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -71,7 +71,7 @@ def get_role(
 def create_role(
     role: RoleCreate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -109,7 +109,7 @@ def update_role(
     role_id: int,
     role: RoleUpdate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     data = model_to_dict(role)
 
@@ -169,7 +169,7 @@ def update_role(
 def delete_role(
     role_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -198,3 +198,4 @@ def delete_role(
 
     finally:
         cursor.close()
+        

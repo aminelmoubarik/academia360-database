@@ -282,6 +282,13 @@ class ScheduleGenerateRequest(BaseModel):
     max_total_sessions: int = Field(default=300, ge=1, le=1000)
 
 
+class ScheduleApprovalRequest(BaseModel):
+    class_id: int
+    start_date: date
+    end_date: date
+    reason: Optional[str] = None
+
+
 # ============================================================
 # ATTENDANCE
 # ============================================================

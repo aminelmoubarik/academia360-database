@@ -73,7 +73,7 @@ def get_course(
 def create_course(
     course: CourseCreate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -113,7 +113,7 @@ def update_course(
     course_id: int,
     course: CourseUpdate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     data = model_to_dict(course)
 
@@ -174,7 +174,7 @@ def update_course(
 def delete_course(
     course_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -203,3 +203,5 @@ def delete_course(
 
     finally:
         cursor.close()
+
+        

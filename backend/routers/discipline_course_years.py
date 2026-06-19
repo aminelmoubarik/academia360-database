@@ -127,7 +127,7 @@ def get_discipline_course_year(
 def create_discipline_course_year(
     discipline_course_year: DisciplineCourseYearCreate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     data = model_to_dict(discipline_course_year)
     validate_positive_values(data)
@@ -180,7 +180,7 @@ def update_discipline_course_year(
     discipline_course_year_id: int,
     discipline_course_year: DisciplineCourseYearUpdate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     data = model_to_dict(discipline_course_year)
 
@@ -251,7 +251,7 @@ def update_discipline_course_year(
 def delete_discipline_course_year(
     discipline_course_year_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 

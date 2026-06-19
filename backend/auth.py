@@ -21,7 +21,7 @@ if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY environment variable is not set")
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")

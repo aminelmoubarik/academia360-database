@@ -17,21 +17,30 @@ def validate_role_exists(cursor, role_id: int):
     """, (role_id,))
 
     if cursor.fetchone() is None:
-        raise HTTPException(status_code=404, detail="Role not found")
+        raise HTTPException(status_code=404, detail="Perfil não encontrado")
 
 
 def validate_password(password: str):
     if not password or len(password) < 6:
         raise HTTPException(
             status_code=400,
-            detail="Password must contain at least 6 characters"
+            detail="A palavra-passe deve ter pelo menos 6 caracteres"
         )
+
+
+def format_integrity_error(error: IntegrityError) -> str:
+    message = str(error)
+
+    if "Duplicate entry" in message and ("Email" in message or "email" in message):
+        return "Já existe um utilizador com este email."
+
+    return message
 
 
 @router.get("")
 def get_users(
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -44,8 +53,8 @@ def get_users(
                 u.RoleID AS role_id,
                 r.Name AS role,
                 CASE
-                    WHEN u.PasswordHash IS NULL THEN 'NO PASSWORD'
-                    ELSE 'PASSWORD SET'
+                    WHEN u.PasswordHash IS NULL THEN 'SEM PALAVRA-PASSE'
+                    ELSE 'PALAVRA-PASSE DEFINIDA'
                 END AS password_status,
                 u.InsertUsername AS insert_username,
                 u.InsertDate AS insert_date,
@@ -67,7 +76,7 @@ def get_users(
 def get_user(
     user_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -80,8 +89,8 @@ def get_user(
                 u.RoleID AS role_id,
                 r.Name AS role,
                 CASE
-                    WHEN u.PasswordHash IS NULL THEN 'NO PASSWORD'
-                    ELSE 'PASSWORD SET'
+                    WHEN u.PasswordHash IS NULL THEN 'SEM PALAVRA-PASSE'
+                    ELSE 'PALAVRA-PASSE DEFINIDA'
                 END AS password_status,
                 u.InsertUsername AS insert_username,
                 u.InsertDate AS insert_date,
@@ -96,7 +105,7 @@ def get_user(
         user = cursor.fetchone()
 
         if user is None:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail="Utilizador não encontrado")
 
         return user
 
@@ -108,7 +117,7 @@ def get_user(
 def create_user(
     user: UserCreate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     validate_password(user.password)
 
@@ -140,13 +149,13 @@ def create_user(
         connection.commit()
 
         return {
-            "message": "User created successfully",
+            "message": "Utilizador criado com sucesso",
             "user_id": cursor.lastrowid
         }
 
     except IntegrityError as error:
         connection.rollback()
-        raise HTTPException(status_code=400, detail=str(error))
+        raise HTTPException(status_code=400, detail=format_integrity_error(error))
 
     finally:
         cursor.close()
@@ -157,12 +166,12 @@ def update_user(
     user_id: int,
     user: UserUpdate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     data = model_to_dict(user)
 
     if not data:
-        raise HTTPException(status_code=400, detail="No fields provided for update")
+        raise HTTPException(status_code=400, detail="Nenhum campo enviado para atualização")
 
     cursor = connection.cursor(dictionary=True)
 
@@ -176,7 +185,7 @@ def update_user(
         """, (user_id,))
 
         if cursor.fetchone() is None:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail="Utilizador não encontrado")
 
         if "role_id" in data:
             validate_role_exists(cursor, data["role_id"])
@@ -201,7 +210,7 @@ def update_user(
                 values.append(data[api_field])
 
         if not set_clauses:
-            raise HTTPException(status_code=400, detail="No valid fields provided for update")
+            raise HTTPException(status_code=400, detail="Nenhum campo válido enviado para atualização")
 
         set_clauses.append("ChangeUsername = %s")
         values.append(audit_username)
@@ -217,13 +226,13 @@ def update_user(
         connection.commit()
 
         return {
-            "message": "User updated successfully",
+            "message": "Utilizador atualizado com sucesso",
             "user_id": user_id
         }
 
     except IntegrityError as error:
         connection.rollback()
-        raise HTTPException(status_code=400, detail=str(error))
+        raise HTTPException(status_code=400, detail=format_integrity_error(error))
 
     finally:
         cursor.close()
@@ -233,11 +242,51 @@ def update_user(
 def delete_user(
     user_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
     try:
+        cursor.execute("""
+            SELECT
+                u.UserID AS id,
+                u.Email AS email,
+                r.Name AS role
+            FROM Tbl_Users u
+            JOIN Tref_UserRoles r ON u.RoleID = r.RoleID
+            WHERE u.UserID = %s
+        """, (user_id,))
+        target = cursor.fetchone()
+
+        if target is None:
+            raise HTTPException(status_code=404, detail="Utilizador não encontrado")
+
+        if current_user.get("user_id") == user_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Não pode eliminar a sua própria conta enquanto tem sessão iniciada."
+            )
+
+        if target["role"] == "admin" and current_user.get("role") != "admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Apenas um administrador pode eliminar outro administrador."
+            )
+
+        if target["role"] == "admin":
+            cursor.execute("""
+                SELECT COUNT(*) AS total_admins
+                FROM Tbl_Users u
+                JOIN Tref_UserRoles r ON u.RoleID = r.RoleID
+                WHERE r.Name = 'admin'
+            """)
+            total_admins = cursor.fetchone()["total_admins"]
+            if total_admins <= 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Não pode eliminar o último administrador do sistema."
+                )
+
         cursor.execute("""
             DELETE FROM Tbl_Users
             WHERE UserID = %s
@@ -245,11 +294,8 @@ def delete_user(
 
         connection.commit()
 
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="User not found")
-
         return {
-            "message": "User deleted successfully",
+            "message": "Utilizador eliminado com sucesso",
             "user_id": user_id
         }
 
@@ -257,7 +303,7 @@ def delete_user(
         connection.rollback()
         raise HTTPException(
             status_code=400,
-            detail="User cannot be deleted because it is being used by another record"
+            detail="O utilizador não pode ser eliminado porque está associado a outros registos."
         )
 
     finally:

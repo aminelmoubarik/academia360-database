@@ -228,7 +228,7 @@ def get_professor_discipline_course_year(
 def create_professor_discipline_course_year(
     relation: ProfessorDisciplineCourseYearCreate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
@@ -269,7 +269,7 @@ def delete_professor_discipline_course_year(
     professor_id: int,
     discipline_course_year_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 

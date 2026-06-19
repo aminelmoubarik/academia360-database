@@ -2,6 +2,7 @@ USE academia360;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DELETE FROM Tbl_AttendanceJustifications;
 DELETE FROM Tbl_AttendanceRecords;
 DELETE FROM Tbl_GeneratedSchedule;
 DELETE FROM Tbl_TeacherAvailability;
@@ -35,6 +36,7 @@ ALTER TABLE Tbl_Rooms AUTO_INCREMENT = 1;
 ALTER TABLE Tbl_SchoolCalendar AUTO_INCREMENT = 1;
 ALTER TABLE Tbl_TeacherAvailability AUTO_INCREMENT = 1;
 ALTER TABLE Tbl_GeneratedSchedule AUTO_INCREMENT = 1;
+ALTER TABLE Tbl_AttendanceJustifications AUTO_INCREMENT = 1;
 ALTER TABLE Tbl_AttendanceRecords AUTO_INCREMENT = 1;
 
 INSERT INTO Tref_UserRoles (
@@ -485,6 +487,23 @@ INSERT INTO Tbl_GeneratedSchedule (
 (3, 1, 3, 2, 3, 2, '09:00:00', '10:00:00', 'approved', 'seed'),
 (4, 3, 4, 1, 2, 3, '11:00:00', '12:00:00', 'draft', 'seed'),
 (5, 4, 6, 3, 3, 6, '09:00:00', '10:00:00', 'approved', 'seed');
+
+
+
+INSERT INTO Tbl_AttendanceJustifications (
+    JustificationID,
+    StudentID,
+    ScheduleID,
+    JustificationDate,
+    Reason,
+    Status,
+    DocumentPath,
+    ReviewedByUserID,
+    ReviewedAt,
+    InsertUsername
+) VALUES
+(1, 1, 1, '2025-09-15', 'Consulta médica justificada pelo encarregado de educação.', 'approved', NULL, 3, '2025-09-16 09:30:00', 'seed'),
+(2, 2, 2, '2025-09-15', 'A aguardar comprovativo.', 'pending', NULL, NULL, NULL, 'seed');
 
 INSERT INTO Tbl_AttendanceRecords (
     AttendanceRecordID,

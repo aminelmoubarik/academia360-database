@@ -136,7 +136,7 @@ def get_teacher_availability_record(
 def create_teacher_availability(
     availability: TeacherAvailabilityCreate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     validate_time_range(availability.start_time, availability.end_time)
 
@@ -184,7 +184,7 @@ def update_teacher_availability(
     availability_id: int,
     availability: TeacherAvailabilityUpdate,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     data = model_to_dict(availability)
 
@@ -254,7 +254,7 @@ def update_teacher_availability(
 def delete_teacher_availability(
     availability_id: int,
     connection=Depends(get_db),
-    current_user=Depends(require_roles(["admin", "director", "secretary"]))
+    current_user=Depends(require_roles(["admin"]))
 ):
     cursor = connection.cursor(dictionary=True)
 
