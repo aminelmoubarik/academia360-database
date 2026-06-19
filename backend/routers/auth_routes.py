@@ -20,6 +20,8 @@ from auth import (
     get_current_user,
 )
 from models import TokenResponse
+from db import get_connection
+from services.audit_logger import log_audit
 
 logger = logging.getLogger("academia360.auth")
 
@@ -47,6 +49,41 @@ def _reset(client_ip: str) -> None:
     _failed_attempts.pop(client_ip, None)
 
 
+def _write_login_audit(user: dict | None, *, action: str, email: str, client_ip: str, user_agent: str | None, summary: str):
+    connection = None
+    cursor = None
+    try:
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+        current_user = None
+        if user is not None:
+            current_user = {
+                "user_id": user.get("user_id"),
+                "email": user.get("email"),
+                "role": user.get("role"),
+            }
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action=action,
+            module="authentication",
+            entity_type="session",
+            entity_id=email,
+            summary=summary,
+            details={"email": email},
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+        connection.commit()
+    except Exception as exc:  # noqa: BLE001 - login must not depend on audit table
+        logger.warning("Login audit skipped: %s", exc)
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     client_ip = request.client.host if request.client else "unknown"
@@ -64,6 +101,14 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     if user is None:
         _register_failure(client_ip)
         logger.info("Failed login for %s from %s", form_data.username, client_ip)
+        _write_login_audit(
+            None,
+            action="login_failed",
+            email=form_data.username,
+            client_ip=client_ip,
+            user_agent=request.headers.get("user-agent"),
+            summary=f"Tentativa de login falhada: {form_data.username}",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -72,6 +117,14 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
 
     _reset(client_ip)
     logger.info("Login OK: %s (%s)", user["email"], user["role"])
+    _write_login_audit(
+        user,
+        action="login_success",
+        email=user["email"],
+        client_ip=client_ip,
+        user_agent=request.headers.get("user-agent"),
+        summary=f"Login efetuado: {user['email']}",
+    )
 
     access_token = create_access_token(
         data={"sub": user["email"], "role": user["role"]},

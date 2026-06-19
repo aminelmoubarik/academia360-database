@@ -42,6 +42,8 @@ The backend provides authentication, academic data management, attendance punchi
 - Automatic timetable generator.
 - Timetable readiness diagnostics.
 - Timetable export endpoints for PDF and Excel.
+- Attendance export endpoints for PDF and Excel.
+- Audit log endpoints and summary endpoint.
 - Admin recovery and demo user generation script.
 
 ---
@@ -199,3 +201,8 @@ Frontend additions:
 - Filters by date, module, action and search text.
 
 Before using the screen on an existing database, run the audit migration.
+
+
+## Step 13 - Reporting Integration
+
+No additional database migration is required for this step. The frontend reporting center reuses existing backend endpoints for attendance dashboards, absenteeism alerts, attendance exports, schedule exports, pending approvals and audit summaries.
