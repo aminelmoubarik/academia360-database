@@ -206,3 +206,7 @@ Before using the screen on an existing database, run the audit migration.
 ## Step 13 - Reporting Integration
 
 No additional database migration is required for this step. The frontend reporting center reuses existing backend endpoints for attendance dashboards, absenteeism alerts, attendance exports, schedule exports, pending approvals and audit summaries.
+
+## Step 14 - Quality Cleanup
+
+No backend migration or schema change is required for this step. The update mainly polishes Flutter analyzer warnings and keeps the current backend API unchanged.
