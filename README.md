@@ -38,7 +38,7 @@ The backend provides authentication, academic data management, attendance punchi
   - attendance records.
 - Attendance punching endpoints.
 - Offline attendance synchronization endpoint.
-- Attendance dashboard endpoint.
+- Attendance dashboard endpoint with class/discipline breakdowns.
 - Automatic timetable generator.
 - Timetable readiness diagnostics.
 - Timetable export endpoints for PDF and Excel.
@@ -114,6 +114,7 @@ admin@academia360.local / admin123
 POST /attendance/punch
 POST /attendance/offline-sync
 GET  /attendance/dashboard
+GET  /attendance/alerts
 GET  /attendance-justifications
 POST /attendance-justifications
 ```
@@ -159,3 +160,12 @@ DB/docs/database.md
 DB/docs/er-diagram.md
 DB/docs/api.md
 ```
+
+
+## Step 8 - Absenteeism Alerts
+
+The attendance module now exposes `/attendance/alerts`, which returns daily absentees, recurrent absences over a configurable recent period and class-level absenteeism summaries. This supports the project requirement for absenteeism alerts and attendance dashboards by class/subject.
+
+## Step 9 - Partial Offline Sync
+
+The `/attendance/offline-sync` endpoint now commits valid records even when some queued records fail. The API returns both `synced` and `failed` lists so the frontend can remove synchronized punches and keep only the records that need attention.

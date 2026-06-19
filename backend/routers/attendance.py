@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from mysql.connector import IntegrityError
@@ -167,13 +167,63 @@ def build_punch_response(cursor, attendance_record_id: int, student: dict, punch
 
 @router.get("")
 def get_attendance_records(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    class_id: int | None = None,
+    student_id: int | None = None,
+    discipline_id: int | None = None,
+    punch_type: str | None = None,
+    punch_method: str | None = None,
+    is_synced: bool | None = None,
+    limit: int = 300,
     connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
+    allowed_types = {"in", "out"}
+    allowed_methods = {"nfc", "rfid", "qr", "barcode", "manual"}
+
+    if punch_type is not None and punch_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid punch type")
+    if punch_method is not None and punch_method not in allowed_methods:
+        raise HTTPException(status_code=400, detail="Invalid punch method")
+
+    limit = max(1, min(limit, 1000))
     cursor = connection.cursor(dictionary=True)
 
     try:
-        cursor.execute("""
+        where_clauses = []
+        values = []
+
+        if start_date is not None:
+            where_clauses.append("DATE(ar.PunchTime) >= %s")
+            values.append(start_date)
+        if end_date is not None:
+            where_clauses.append("DATE(ar.PunchTime) <= %s")
+            values.append(end_date)
+        if class_id is not None:
+            where_clauses.append("cl.ClassID = %s")
+            values.append(class_id)
+        if student_id is not None:
+            where_clauses.append("s.StudentID = %s")
+            values.append(student_id)
+        if discipline_id is not None:
+            where_clauses.append("dc.DisciplineID = %s")
+            values.append(discipline_id)
+        if punch_type is not None:
+            where_clauses.append("ar.PunchType = %s")
+            values.append(punch_type)
+        if punch_method is not None:
+            where_clauses.append("ar.PunchMethod = %s")
+            values.append(punch_method)
+        if is_synced is not None:
+            where_clauses.append("ar.IsSynced = %s")
+            values.append(1 if is_synced else 0)
+
+        where_sql = ""
+        if where_clauses:
+            where_sql = "WHERE " + " AND ".join(where_clauses)
+
+        cursor.execute(f"""
             SELECT
                 ar.AttendanceRecordID AS id,
                 ar.StudentID AS student_id,
@@ -185,6 +235,7 @@ def get_attendance_records(
                 c.Code AS course_code,
                 sy.Name AS school_year,
                 ar.ScheduleID AS schedule_id,
+                dc.DisciplineID AS discipline_id,
                 d.Name AS discipline_name,
                 sc.CalendarDate AS schedule_date,
                 gs.StartTime AS class_start_time,
@@ -198,24 +249,26 @@ def get_attendance_records(
                 ar.ChangeUsername AS change_username,
                 ar.ChangeDate AS change_date
             FROM Tbl_AttendanceRecords ar
-            JOIN Tbl_Students s 
+            JOIN Tbl_Students s
                 ON ar.StudentID = s.StudentID
-            LEFT JOIN Tbl_Classes cl 
+            LEFT JOIN Tbl_Classes cl
                 ON s.ClassID = cl.ClassID
-            LEFT JOIN Tbl_Courses c 
+            LEFT JOIN Tbl_Courses c
                 ON cl.CourseID = c.CourseID
-            LEFT JOIN Tref_SchoolYears sy 
+            LEFT JOIN Tref_SchoolYears sy
                 ON cl.SchoolYearID = sy.SchoolYearID
-            LEFT JOIN Tbl_GeneratedSchedule gs 
+            LEFT JOIN Tbl_GeneratedSchedule gs
                 ON ar.ScheduleID = gs.ScheduleID
-            LEFT JOIN Tbl_SchoolCalendar sc 
+            LEFT JOIN Tbl_SchoolCalendar sc
                 ON gs.CalendarID = sc.CalendarID
-            LEFT JOIN trx_Discipline_CourseYear dc 
+            LEFT JOIN trx_Discipline_CourseYear dc
                 ON gs.DisciplineCourseYearID = dc.DisciplineCourseYearID
-            LEFT JOIN Tbl_Disciplines d 
+            LEFT JOIN Tbl_Disciplines d
                 ON dc.DisciplineID = d.DisciplineID
+            {where_sql}
             ORDER BY ar.PunchTime DESC
-        """)
+            LIMIT %s
+        """, (*values, limit))
 
         return cursor.fetchall()
 
@@ -227,6 +280,7 @@ def get_attendance_records(
 def get_attendance_dashboard(
     target_date: date | None = None,
     class_id: int | None = None,
+    discipline_id: int | None = None,
     connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
@@ -234,28 +288,47 @@ def get_attendance_dashboard(
     cursor = connection.cursor(dictionary=True)
 
     try:
-        class_clause = ""
-        class_values = []
+        student_where = []
+        student_values = []
         if class_id is not None:
-            class_clause = "AND s.ClassID = %s"
-            class_values.append(class_id)
+            student_where.append("s.ClassID = %s")
+            student_values.append(class_id)
+        student_where_sql = ""
+        if student_where:
+            student_where_sql = "WHERE " + " AND ".join(student_where)
 
         cursor.execute(f"""
             SELECT COUNT(*) AS total_students
             FROM Tbl_Students s
-            WHERE 1 = 1 {class_clause}
-        """, tuple(class_values))
+            {student_where_sql}
+        """, tuple(student_values))
         total_students = (cursor.fetchone() or {}).get("total_students", 0)
+
+        attendance_where = ["DATE(ar.PunchTime) = %s", "ar.PunchType = 'in'"]
+        attendance_values = [target_date]
+        if class_id is not None:
+            attendance_where.append("s.ClassID = %s")
+            attendance_values.append(class_id)
+        if discipline_id is not None:
+            attendance_where.append("dc.DisciplineID = %s")
+            attendance_values.append(discipline_id)
+        attendance_where_sql = " AND ".join(attendance_where)
 
         cursor.execute(f"""
             SELECT COUNT(DISTINCT ar.StudentID) AS present_students
             FROM Tbl_AttendanceRecords ar
             JOIN Tbl_Students s ON ar.StudentID = s.StudentID
-            WHERE DATE(ar.PunchTime) = %s
-              AND ar.PunchType = 'in'
-              {class_clause}
-        """, (target_date, *class_values))
+            LEFT JOIN Tbl_GeneratedSchedule gs ON ar.ScheduleID = gs.ScheduleID
+            LEFT JOIN trx_Discipline_CourseYear dc ON gs.DisciplineCourseYearID = dc.DisciplineCourseYearID
+            WHERE {attendance_where_sql}
+        """, tuple(attendance_values))
         present_students = (cursor.fetchone() or {}).get("present_students", 0)
+
+        not_exists_filters = ["ar2.StudentID = s.StudentID", "DATE(ar2.PunchTime) = %s", "ar2.PunchType = 'in'"]
+        not_exists_values = [target_date]
+        if discipline_id is not None:
+            not_exists_filters.append("dc2.DisciplineID = %s")
+            not_exists_values.append(discipline_id)
 
         cursor.execute(f"""
             SELECT
@@ -266,16 +339,27 @@ def get_attendance_dashboard(
                 cl.Name AS class_name
             FROM Tbl_Students s
             LEFT JOIN Tbl_Classes cl ON s.ClassID = cl.ClassID
-            LEFT JOIN Tbl_AttendanceRecords ar
-              ON ar.StudentID = s.StudentID
-             AND DATE(ar.PunchTime) = %s
-             AND ar.PunchType = 'in'
-            WHERE ar.AttendanceRecordID IS NULL
-              {class_clause}
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM Tbl_AttendanceRecords ar2
+                LEFT JOIN Tbl_GeneratedSchedule gs2 ON ar2.ScheduleID = gs2.ScheduleID
+                LEFT JOIN trx_Discipline_CourseYear dc2 ON gs2.DisciplineCourseYearID = dc2.DisciplineCourseYearID
+                WHERE {' AND '.join(not_exists_filters)}
+            )
+            {('AND s.ClassID = %s') if class_id is not None else ''}
             ORDER BY cl.Name, s.FullName
             LIMIT 20
-        """, (target_date, *class_values))
+        """, tuple([*not_exists_values, *student_values]))
         absentees = cursor.fetchall()
+
+        recent_where = ["DATE(ar.PunchTime) = %s"]
+        recent_values = [target_date]
+        if class_id is not None:
+            recent_where.append("s.ClassID = %s")
+            recent_values.append(class_id)
+        if discipline_id is not None:
+            recent_where.append("dc.DisciplineID = %s")
+            recent_values.append(discipline_id)
 
         cursor.execute(f"""
             SELECT
@@ -283,32 +367,229 @@ def get_attendance_dashboard(
                 s.FullName AS student_name,
                 s.StudentNumber AS student_number,
                 cl.Name AS class_name,
+                d.Name AS discipline_name,
                 ar.PunchType AS punch_type,
                 ar.PunchMethod AS punch_method,
                 ar.PunchTime AS punch_time
             FROM Tbl_AttendanceRecords ar
             JOIN Tbl_Students s ON ar.StudentID = s.StudentID
             LEFT JOIN Tbl_Classes cl ON s.ClassID = cl.ClassID
-            WHERE DATE(ar.PunchTime) = %s
-              {class_clause}
+            LEFT JOIN Tbl_GeneratedSchedule gs ON ar.ScheduleID = gs.ScheduleID
+            LEFT JOIN trx_Discipline_CourseYear dc ON gs.DisciplineCourseYearID = dc.DisciplineCourseYearID
+            LEFT JOIN Tbl_Disciplines d ON dc.DisciplineID = d.DisciplineID
+            WHERE {' AND '.join(recent_where)}
             ORDER BY ar.PunchTime DESC
             LIMIT 12
-        """, (target_date, *class_values))
+        """, tuple(recent_values))
         recent = cursor.fetchall()
 
+        cursor.execute("""
+            SELECT
+                cl.ClassID AS class_id,
+                cl.Name AS class_name,
+                COUNT(DISTINCT s.StudentID) AS total_students,
+                COUNT(DISTINCT CASE
+                    WHEN DATE(ar.PunchTime) = %s AND ar.PunchType = 'in' THEN ar.StudentID
+                END) AS present_students
+            FROM Tbl_Classes cl
+            LEFT JOIN Tbl_Students s ON s.ClassID = cl.ClassID
+            LEFT JOIN Tbl_AttendanceRecords ar ON ar.StudentID = s.StudentID
+            GROUP BY cl.ClassID, cl.Name
+            ORDER BY cl.Name
+        """, (target_date,))
+        by_class = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT
+                d.DisciplineID AS discipline_id,
+                d.Name AS discipline_name,
+                COUNT(ar.AttendanceRecordID) AS punch_count,
+                COUNT(DISTINCT ar.StudentID) AS student_count
+            FROM Tbl_AttendanceRecords ar
+            JOIN Tbl_GeneratedSchedule gs ON ar.ScheduleID = gs.ScheduleID
+            JOIN trx_Discipline_CourseYear dc ON gs.DisciplineCourseYearID = dc.DisciplineCourseYearID
+            JOIN Tbl_Disciplines d ON dc.DisciplineID = d.DisciplineID
+            JOIN Tbl_Students s ON ar.StudentID = s.StudentID
+            WHERE DATE(ar.PunchTime) = %s
+              AND (%s IS NULL OR s.ClassID = %s)
+            GROUP BY d.DisciplineID, d.Name
+            ORDER BY punch_count DESC, d.Name
+            LIMIT 8
+        """, (target_date, class_id, class_id))
+        by_discipline = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT
+                ar.PunchMethod AS punch_method,
+                COUNT(*) AS total
+            FROM Tbl_AttendanceRecords ar
+            JOIN Tbl_Students s ON ar.StudentID = s.StudentID
+            WHERE DATE(ar.PunchTime) = %s
+              AND (%s IS NULL OR s.ClassID = %s)
+            GROUP BY ar.PunchMethod
+            ORDER BY total DESC
+        """, (target_date, class_id, class_id))
+        by_method = cursor.fetchall()
+
+        absent_students = max(total_students - present_students, 0)
         return {
             "date": target_date,
+            "filters": {
+                "class_id": class_id,
+                "discipline_id": discipline_id,
+            },
             "total_students": total_students,
             "present_students": present_students,
-            "absent_students": max(total_students - present_students, 0),
+            "absent_students": absent_students,
             "absentees": absentees,
             "recent": recent,
+            "by_class": by_class,
+            "by_discipline": by_discipline,
+            "by_method": by_method,
             "alerts": [
                 {
                     "type": "absenteeism",
-                    "message": f"{max(total_students - present_students, 0)} estudantes sem picagem de entrada hoje",
+                    "message": f"{absent_students} estudantes sem picagem de entrada no dia selecionado",
                 }
-            ] if total_students - present_students > 0 else [],
+            ] if absent_students > 0 else [],
+        }
+
+    finally:
+        cursor.close()
+
+
+@router.get("/alerts")
+def get_absenteeism_alerts(
+    target_date: date | None = None,
+    class_id: int | None = None,
+    discipline_id: int | None = None,
+    days: int = 7,
+    connection=Depends(get_db),
+    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+):
+    """Return actionable absenteeism alerts for the selected date and recent period."""
+    target_date = target_date or date.today()
+    days = max(1, min(days, 30))
+    period_start = target_date - timedelta(days=days - 1)
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        student_filters = []
+        student_values = []
+        if class_id is not None:
+            student_filters.append("s.ClassID = %s")
+            student_values.append(class_id)
+        student_where = ""
+        if student_filters:
+            student_where = "AND " + " AND ".join(student_filters)
+
+        discipline_join = ""
+        discipline_filter = ""
+        discipline_values = []
+        if discipline_id is not None:
+            discipline_join = """
+                LEFT JOIN Tbl_GeneratedSchedule gs2 ON ar2.ScheduleID = gs2.ScheduleID
+                LEFT JOIN trx_Discipline_CourseYear dc2 ON gs2.DisciplineCourseYearID = dc2.DisciplineCourseYearID
+            """
+            discipline_filter = "AND dc2.DisciplineID = %s"
+            discipline_values.append(discipline_id)
+
+        cursor.execute(f"""
+            SELECT
+                s.StudentID AS student_id,
+                s.FullName AS student_name,
+                s.StudentNumber AS student_number,
+                s.CardUID AS card_uid,
+                cl.Name AS class_name
+            FROM Tbl_Students s
+            LEFT JOIN Tbl_Classes cl ON s.ClassID = cl.ClassID
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM Tbl_AttendanceRecords ar2
+                {discipline_join}
+                WHERE ar2.StudentID = s.StudentID
+                  AND DATE(ar2.PunchTime) = %s
+                  AND ar2.PunchType = 'in'
+                  {discipline_filter}
+            )
+            {student_where}
+            ORDER BY cl.Name, s.FullName
+            LIMIT 50
+        """, tuple([target_date, *discipline_values, *student_values]))
+        today_absentees = cursor.fetchall()
+
+        cursor.execute(f"""
+            SELECT
+                s.StudentID AS student_id,
+                s.FullName AS student_name,
+                s.StudentNumber AS student_number,
+                cl.Name AS class_name,
+                COUNT(sc.CalendarDate) AS missing_days
+            FROM Tbl_Students s
+            LEFT JOIN Tbl_Classes cl ON s.ClassID = cl.ClassID
+            JOIN Tbl_SchoolCalendar sc
+                ON sc.CalendarDate BETWEEN %s AND %s
+               AND sc.IsSchoolDay = TRUE
+            LEFT JOIN Tbl_AttendanceRecords ar
+                ON ar.StudentID = s.StudentID
+               AND DATE(ar.PunchTime) = sc.CalendarDate
+               AND ar.PunchType = 'in'
+            WHERE ar.AttendanceRecordID IS NULL
+            {student_where}
+            GROUP BY s.StudentID, s.FullName, s.StudentNumber, cl.Name
+            HAVING missing_days >= 2
+            ORDER BY missing_days DESC, cl.Name, s.FullName
+            LIMIT 30
+        """, tuple([period_start, target_date, *student_values]))
+        recurrent_absences = cursor.fetchall()
+
+        cursor.execute(f"""
+            SELECT
+                cl.ClassID AS class_id,
+                cl.Name AS class_name,
+                COUNT(DISTINCT s.StudentID) AS total_students,
+                COUNT(DISTINCT CASE WHEN ar.AttendanceRecordID IS NULL THEN s.StudentID END) AS missing_today
+            FROM Tbl_Students s
+            LEFT JOIN Tbl_Classes cl ON s.ClassID = cl.ClassID
+            LEFT JOIN Tbl_AttendanceRecords ar
+                ON ar.StudentID = s.StudentID
+               AND DATE(ar.PunchTime) = %s
+               AND ar.PunchType = 'in'
+            WHERE 1 = 1
+            {student_where}
+            GROUP BY cl.ClassID, cl.Name
+            HAVING missing_today > 0
+            ORDER BY missing_today DESC, cl.Name
+            LIMIT 10
+        """, tuple([target_date, *student_values]))
+        class_alerts = cursor.fetchall()
+
+        alert_items = []
+        if today_absentees:
+            alert_items.append({
+                "type": "daily_absence",
+                "severity": "high" if len(today_absentees) >= 5 else "medium",
+                "message": f"{len(today_absentees)} estudantes sem entrada registada no dia selecionado",
+            })
+        if recurrent_absences:
+            alert_items.append({
+                "type": "recurrent_absence",
+                "severity": "high",
+                "message": f"{len(recurrent_absences)} estudantes com ausências recorrentes nos últimos {days} dias",
+            })
+
+        return {
+            "date": target_date,
+            "period_start": period_start,
+            "period_days": days,
+            "filters": {
+                "class_id": class_id,
+                "discipline_id": discipline_id,
+            },
+            "today_absentees": today_absentees,
+            "recurrent_absences": recurrent_absences,
+            "class_alerts": class_alerts,
+            "alerts": alert_items,
         }
 
     finally:
@@ -394,11 +675,19 @@ def sync_offline_attendance(
             except Exception as exc:  # noqa: BLE001 - queremos devolver os erros por registo
                 failed.append({"index": index, "card_uid": item.card_uid, "error": str(exc)})
 
-        if failed:
-            connection.rollback()
-            return {"success": False, "synced": synced, "failed": failed}
-
+        # Commit successful records even when some records fail.
+        # This makes offline sync resilient: valid punches are not lost because
+        # one card UID is invalid or one record has a bad timestamp.
         connection.commit()
+
+        if failed:
+            return {
+                "success": False,
+                "synced": synced,
+                "failed": failed,
+                "message": "Partial sync completed. Some records need attention.",
+            }
+
         return {"success": True, "synced": synced, "failed": []}
 
     finally:
