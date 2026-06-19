@@ -169,3 +169,15 @@ The attendance module now exposes `/attendance/alerts`, which returns daily abse
 ## Step 9 - Partial Offline Sync
 
 The `/attendance/offline-sync` endpoint now commits valid records even when some queued records fail. The API returns both `synced` and `failed` lists so the frontend can remove synchronized punches and keep only the records that need attention.
+
+
+## Step 11 - Attendance Export Endpoints
+
+The backend now exposes:
+
+```text
+GET /attendance/export/pdf
+GET /attendance/export/excel
+```
+
+Both endpoints use the same filters as `/attendance`, including date range, class, student, discipline, punch type, punch method, synchronization status and search text.

@@ -1,7 +1,17 @@
 from datetime import datetime, date, timedelta
+from io import BytesIO
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from mysql.connector import IntegrityError
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import cm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from auth import require_roles
 from db import get_db
@@ -165,6 +175,177 @@ def build_punch_response(cursor, attendance_record_id: int, student: dict, punch
     }
 
 
+def _format_export_value(value):
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    value_text = str(value)
+    if len(value_text) >= 8 and value_text.count(":") >= 2:
+        return value_text[:5]
+    return value_text
+
+
+def _attendance_type_label(value: str | None) -> str:
+    return {"in": "Entrada", "out": "Saída"}.get(value or "", value or "")
+
+
+def _attendance_method_label(value: str | None) -> str:
+    return {
+        "nfc": "NFC",
+        "rfid": "RFID",
+        "qr": "QR Code",
+        "barcode": "Código de barras",
+        "manual": "Manual",
+    }.get(value or "", value or "")
+
+
+def _safe_filename_part(value: str) -> str:
+    cleaned = "".join(ch if ch.isalnum() else "_" for ch in value.lower())
+    while "__" in cleaned:
+        cleaned = cleaned.replace("__", "_")
+    return cleaned.strip("_") or "assiduidade"
+
+
+def _attendance_export_filename(rows, extension: str) -> str:
+    today = datetime.now().strftime("%Y%m%d")
+    class_name = "assiduidade"
+    if rows:
+        first_class = rows[0].get("class_name")
+        if first_class:
+            class_name = first_class
+    return f"academia360_{_safe_filename_part(class_name)}_{today}.{extension}"
+
+
+def _validate_attendance_filters(punch_type: str | None, punch_method: str | None):
+    allowed_types = {"in", "out"}
+    allowed_methods = {"nfc", "rfid", "qr", "barcode", "manual"}
+
+    if punch_type is not None and punch_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid punch type")
+    if punch_method is not None and punch_method not in allowed_methods:
+        raise HTTPException(status_code=400, detail="Invalid punch method")
+
+
+def fetch_attendance_rows(
+    cursor,
+    *,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    class_id: int | None = None,
+    student_id: int | None = None,
+    discipline_id: int | None = None,
+    punch_type: str | None = None,
+    punch_method: str | None = None,
+    is_synced: bool | None = None,
+    search: str | None = None,
+    limit: int | None = 300,
+):
+    _validate_attendance_filters(punch_type, punch_method)
+
+    where_clauses = []
+    values = []
+
+    if start_date is not None:
+        where_clauses.append("DATE(ar.PunchTime) >= %s")
+        values.append(start_date)
+    if end_date is not None:
+        where_clauses.append("DATE(ar.PunchTime) <= %s")
+        values.append(end_date)
+    if class_id is not None:
+        where_clauses.append("cl.ClassID = %s")
+        values.append(class_id)
+    if student_id is not None:
+        where_clauses.append("s.StudentID = %s")
+        values.append(student_id)
+    if discipline_id is not None:
+        where_clauses.append("dc.DisciplineID = %s")
+        values.append(discipline_id)
+    if punch_type is not None:
+        where_clauses.append("ar.PunchType = %s")
+        values.append(punch_type)
+    if punch_method is not None:
+        where_clauses.append("ar.PunchMethod = %s")
+        values.append(punch_method)
+    if is_synced is not None:
+        where_clauses.append("ar.IsSynced = %s")
+        values.append(1 if is_synced else 0)
+    if search is not None and search.strip():
+        like = f"%{search.strip().lower()}%"
+        where_clauses.append("""
+            (
+                LOWER(s.FullName) LIKE %s
+                OR LOWER(s.StudentNumber) LIKE %s
+                OR LOWER(COALESCE(s.CardUID, '')) LIKE %s
+                OR LOWER(COALESCE(cl.Name, '')) LIKE %s
+                OR LOWER(COALESCE(c.Code, '')) LIKE %s
+                OR LOWER(COALESCE(d.Name, '')) LIKE %s
+                OR LOWER(ar.PunchMethod) LIKE %s
+                OR LOWER(ar.PunchType) LIKE %s
+            )
+        """)
+        values.extend([like] * 8)
+
+    where_sql = ""
+    if where_clauses:
+        where_sql = "WHERE " + " AND ".join(where_clauses)
+
+    limit_sql = ""
+    if limit is not None:
+        limit_sql = "LIMIT %s"
+        values.append(limit)
+
+    cursor.execute(f"""
+        SELECT
+            ar.AttendanceRecordID AS id,
+            ar.StudentID AS student_id,
+            s.FullName AS student_name,
+            s.StudentNumber AS student_number,
+            s.CardUID AS card_uid,
+            cl.ClassID AS class_id,
+            cl.Name AS class_name,
+            c.Code AS course_code,
+            c.Name AS course_name,
+            sy.Name AS school_year,
+            ar.ScheduleID AS schedule_id,
+            dc.DisciplineID AS discipline_id,
+            d.Name AS discipline_name,
+            sc.CalendarDate AS schedule_date,
+            gs.StartTime AS class_start_time,
+            gs.EndTime AS class_end_time,
+            ar.PunchType AS punch_type,
+            ar.PunchMethod AS punch_method,
+            ar.PunchTime AS punch_time,
+            ar.IsSynced AS is_synced,
+            ar.InsertUsername AS insert_username,
+            ar.InsertDate AS insert_date,
+            ar.ChangeUsername AS change_username,
+            ar.ChangeDate AS change_date
+        FROM Tbl_AttendanceRecords ar
+        JOIN Tbl_Students s
+            ON ar.StudentID = s.StudentID
+        LEFT JOIN Tbl_Classes cl
+            ON s.ClassID = cl.ClassID
+        LEFT JOIN Tbl_Courses c
+            ON cl.CourseID = c.CourseID
+        LEFT JOIN Tref_SchoolYears sy
+            ON cl.SchoolYearID = sy.SchoolYearID
+        LEFT JOIN Tbl_GeneratedSchedule gs
+            ON ar.ScheduleID = gs.ScheduleID
+        LEFT JOIN Tbl_SchoolCalendar sc
+            ON gs.CalendarID = sc.CalendarID
+        LEFT JOIN trx_Discipline_CourseYear dc
+            ON gs.DisciplineCourseYearID = dc.DisciplineCourseYearID
+        LEFT JOIN Tbl_Disciplines d
+            ON dc.DisciplineID = d.DisciplineID
+        {where_sql}
+        ORDER BY ar.PunchTime DESC
+        {limit_sql}
+    """, tuple(values))
+
+    return cursor.fetchall()
+
+
 @router.get("")
 def get_attendance_records(
     start_date: date | None = None,
@@ -175,102 +356,28 @@ def get_attendance_records(
     punch_type: str | None = None,
     punch_method: str | None = None,
     is_synced: bool | None = None,
+    search: str | None = None,
     limit: int = 300,
     connection=Depends(get_db),
     current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
 ):
-    allowed_types = {"in", "out"}
-    allowed_methods = {"nfc", "rfid", "qr", "barcode", "manual"}
-
-    if punch_type is not None and punch_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="Invalid punch type")
-    if punch_method is not None and punch_method not in allowed_methods:
-        raise HTTPException(status_code=400, detail="Invalid punch method")
-
     limit = max(1, min(limit, 1000))
     cursor = connection.cursor(dictionary=True)
 
     try:
-        where_clauses = []
-        values = []
-
-        if start_date is not None:
-            where_clauses.append("DATE(ar.PunchTime) >= %s")
-            values.append(start_date)
-        if end_date is not None:
-            where_clauses.append("DATE(ar.PunchTime) <= %s")
-            values.append(end_date)
-        if class_id is not None:
-            where_clauses.append("cl.ClassID = %s")
-            values.append(class_id)
-        if student_id is not None:
-            where_clauses.append("s.StudentID = %s")
-            values.append(student_id)
-        if discipline_id is not None:
-            where_clauses.append("dc.DisciplineID = %s")
-            values.append(discipline_id)
-        if punch_type is not None:
-            where_clauses.append("ar.PunchType = %s")
-            values.append(punch_type)
-        if punch_method is not None:
-            where_clauses.append("ar.PunchMethod = %s")
-            values.append(punch_method)
-        if is_synced is not None:
-            where_clauses.append("ar.IsSynced = %s")
-            values.append(1 if is_synced else 0)
-
-        where_sql = ""
-        if where_clauses:
-            where_sql = "WHERE " + " AND ".join(where_clauses)
-
-        cursor.execute(f"""
-            SELECT
-                ar.AttendanceRecordID AS id,
-                ar.StudentID AS student_id,
-                s.FullName AS student_name,
-                s.StudentNumber AS student_number,
-                s.CardUID AS card_uid,
-                cl.ClassID AS class_id,
-                cl.Name AS class_name,
-                c.Code AS course_code,
-                sy.Name AS school_year,
-                ar.ScheduleID AS schedule_id,
-                dc.DisciplineID AS discipline_id,
-                d.Name AS discipline_name,
-                sc.CalendarDate AS schedule_date,
-                gs.StartTime AS class_start_time,
-                gs.EndTime AS class_end_time,
-                ar.PunchType AS punch_type,
-                ar.PunchMethod AS punch_method,
-                ar.PunchTime AS punch_time,
-                ar.IsSynced AS is_synced,
-                ar.InsertUsername AS insert_username,
-                ar.InsertDate AS insert_date,
-                ar.ChangeUsername AS change_username,
-                ar.ChangeDate AS change_date
-            FROM Tbl_AttendanceRecords ar
-            JOIN Tbl_Students s
-                ON ar.StudentID = s.StudentID
-            LEFT JOIN Tbl_Classes cl
-                ON s.ClassID = cl.ClassID
-            LEFT JOIN Tbl_Courses c
-                ON cl.CourseID = c.CourseID
-            LEFT JOIN Tref_SchoolYears sy
-                ON cl.SchoolYearID = sy.SchoolYearID
-            LEFT JOIN Tbl_GeneratedSchedule gs
-                ON ar.ScheduleID = gs.ScheduleID
-            LEFT JOIN Tbl_SchoolCalendar sc
-                ON gs.CalendarID = sc.CalendarID
-            LEFT JOIN trx_Discipline_CourseYear dc
-                ON gs.DisciplineCourseYearID = dc.DisciplineCourseYearID
-            LEFT JOIN Tbl_Disciplines d
-                ON dc.DisciplineID = d.DisciplineID
-            {where_sql}
-            ORDER BY ar.PunchTime DESC
-            LIMIT %s
-        """, (*values, limit))
-
-        return cursor.fetchall()
+        return fetch_attendance_rows(
+            cursor,
+            start_date=start_date,
+            end_date=end_date,
+            class_id=class_id,
+            student_id=student_id,
+            discipline_id=discipline_id,
+            punch_type=punch_type,
+            punch_method=punch_method,
+            is_synced=is_synced,
+            search=search,
+            limit=limit,
+        )
 
     finally:
         cursor.close()
@@ -689,6 +796,225 @@ def sync_offline_attendance(
             }
 
         return {"success": True, "synced": synced, "failed": []}
+
+    finally:
+        cursor.close()
+
+
+@router.get("/export/excel")
+def export_attendance_excel(
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
+    class_id: Optional[int] = Query(default=None),
+    student_id: Optional[int] = Query(default=None),
+    discipline_id: Optional[int] = Query(default=None),
+    punch_type: Optional[str] = Query(default=None),
+    punch_method: Optional[str] = Query(default=None),
+    is_synced: Optional[bool] = Query(default=None),
+    search: Optional[str] = Query(default=None),
+    connection=Depends(get_db),
+    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+):
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        rows = fetch_attendance_rows(
+            cursor,
+            start_date=start_date,
+            end_date=end_date,
+            class_id=class_id,
+            student_id=student_id,
+            discipline_id=discipline_id,
+            punch_type=punch_type,
+            punch_method=punch_method,
+            is_synced=is_synced,
+            search=search,
+            limit=5000,
+        )
+
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail="Não foram encontrados registos de assiduidade para exportar."
+            )
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Assiduidade"
+
+        sheet.merge_cells("A1:L1")
+        title_cell = sheet["A1"]
+        title_cell.value = "Academia360 - Relatório de Assiduidade"
+        title_cell.font = Font(bold=True, size=16, color="1C29E1")
+        title_cell.alignment = Alignment(horizontal="center")
+
+        generated_cell = sheet["A2"]
+        generated_cell.value = f"Gerado em {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        generated_cell.font = Font(italic=True, color="666666")
+
+        filter_cell = sheet["A3"]
+        filter_cell.value = (
+            f"Período: {start_date or 'início'} até {end_date or 'fim'} · "
+            f"Turma: {class_id or 'todas'} · Disciplina: {discipline_id or 'todas'}"
+        )
+        filter_cell.font = Font(italic=True, color="666666")
+
+        headers = [
+            "Data/hora",
+            "Estudante",
+            "N.º estudante",
+            "Cartão",
+            "Turma",
+            "Curso",
+            "Ano letivo",
+            "Disciplina",
+            "Tipo",
+            "Método",
+            "Sincronização",
+            "Criado por",
+        ]
+        sheet.append(headers)
+        header_row = 4
+
+        for cell in sheet[header_row]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="1C29E1")
+            cell.alignment = Alignment(horizontal="center")
+
+        for row in rows:
+            sheet.append([
+                _format_export_value(row.get("punch_time")),
+                row.get("student_name"),
+                row.get("student_number"),
+                row.get("card_uid"),
+                row.get("class_name"),
+                row.get("course_code"),
+                row.get("school_year"),
+                row.get("discipline_name"),
+                _attendance_type_label(row.get("punch_type")),
+                _attendance_method_label(row.get("punch_method")),
+                "Sim" if row.get("is_synced") else "Offline",
+                row.get("insert_username"),
+            ])
+
+        widths = [20, 30, 16, 18, 16, 14, 16, 26, 12, 18, 16, 18]
+        for index, width in enumerate(widths, start=1):
+            sheet.column_dimensions[chr(64 + index)].width = width
+
+        sheet.freeze_panes = "A5"
+        sheet.auto_filter.ref = f"A4:L{sheet.max_row}"
+
+        buffer = BytesIO()
+        workbook.save(buffer)
+        buffer.seek(0)
+
+        filename = _attendance_export_filename(rows, "xlsx")
+        return StreamingResponse(
+            buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+
+    finally:
+        cursor.close()
+
+
+@router.get("/export/pdf")
+def export_attendance_pdf(
+    start_date: Optional[date] = Query(default=None),
+    end_date: Optional[date] = Query(default=None),
+    class_id: Optional[int] = Query(default=None),
+    student_id: Optional[int] = Query(default=None),
+    discipline_id: Optional[int] = Query(default=None),
+    punch_type: Optional[str] = Query(default=None),
+    punch_method: Optional[str] = Query(default=None),
+    is_synced: Optional[bool] = Query(default=None),
+    search: Optional[str] = Query(default=None),
+    connection=Depends(get_db),
+    current_user=Depends(require_roles(["admin", "director", "secretary", "professor"]))
+):
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        rows = fetch_attendance_rows(
+            cursor,
+            start_date=start_date,
+            end_date=end_date,
+            class_id=class_id,
+            student_id=student_id,
+            discipline_id=discipline_id,
+            punch_type=punch_type,
+            punch_method=punch_method,
+            is_synced=is_synced,
+            search=search,
+            limit=5000,
+        )
+
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail="Não foram encontrados registos de assiduidade para exportar."
+            )
+
+        buffer = BytesIO()
+        document = SimpleDocTemplate(
+            buffer,
+            pagesize=landscape(A4),
+            rightMargin=1.0 * cm,
+            leftMargin=1.0 * cm,
+            topMargin=1.0 * cm,
+            bottomMargin=1.0 * cm,
+        )
+        styles = getSampleStyleSheet()
+        elements = [
+            Paragraph("Academia360 - Relatório de Assiduidade", styles["Title"]),
+            Paragraph(f"Gerado em {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles["Normal"]),
+            Paragraph(
+                f"Período: {start_date or 'início'} até {end_date or 'fim'} · "
+                f"Turma: {class_id or 'todas'} · Disciplina: {discipline_id or 'todas'}",
+                styles["Normal"],
+            ),
+            Spacer(1, 0.35 * cm),
+        ]
+
+        data = [["Data/hora", "Estudante", "Turma", "Disciplina", "Tipo", "Método", "Sync"]]
+        for row in rows:
+            data.append([
+                _format_export_value(row.get("punch_time")),
+                row.get("student_name") or "",
+                row.get("class_name") or "",
+                row.get("discipline_name") or "",
+                _attendance_type_label(row.get("punch_type")),
+                _attendance_method_label(row.get("punch_method")),
+                "Sim" if row.get("is_synced") else "Offline",
+            ])
+
+        table = Table(
+            data,
+            repeatRows=1,
+            colWidths=[3.0*cm, 5.2*cm, 3.0*cm, 4.4*cm, 2.0*cm, 2.6*cm, 1.8*cm],
+        )
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1C29E1")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#DDE2FF")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F7F8FC")]),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ]))
+
+        elements.append(table)
+        document.build(elements)
+        buffer.seek(0)
+
+        filename = _attendance_export_filename(rows, "pdf")
+        return StreamingResponse(
+            buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
     finally:
         cursor.close()
