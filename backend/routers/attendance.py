@@ -158,7 +158,35 @@ def insert_attendance_record(
     return cursor.lastrowid
 
 
-def build_punch_response(cursor, attendance_record_id: int, student: dict, punch_type: str, schedule_id: int | None):
+def attendance_record_exists(
+    cursor,
+    *,
+    student_id: int,
+    punch_type: str,
+    punch_time: datetime | None,
+) -> bool:
+    """Deteta um fichaje duplicado.
+
+    Usado na sincronização offline para garantir idempotência: se o cliente
+    reenviar o mesmo lote (porque a resposta se perdeu por causa da rede), os
+    mesmos registos não são inseridos duas vezes. A "impressão digital" de uma
+    picagem é (estudante, instante, tipo). Sem punch_time não há forma fiável
+    de deduplicar, por isso nesse caso assume-se que não existe.
+    """
+    if punch_time is None:
+        return False
+    cursor.execute(
+        """
+        SELECT 1
+        FROM Tbl_AttendanceRecords
+        WHERE StudentID = %s
+          AND PunchType = %s
+          AND PunchTime = %s
+        LIMIT 1
+        """,
+        (student_id, punch_type, punch_time),
+    )
+    return cursor.fetchone() is not None
     cursor.execute("""
         SELECT PunchTime AS punch_time
         FROM Tbl_AttendanceRecords
@@ -704,6 +732,36 @@ def get_absenteeism_alerts(
         cursor.close()
 
 
+def find_recent_duplicate_punch(
+    cursor,
+    *,
+    student_id: int,
+    punch_time: datetime | None,
+    window_seconds: int = 10,
+):
+    """Deteta uma picagem acidental repetida (cartão passado 2x seguidas).
+
+    Devolve o registo mais recente desse estudante se ocorreu dentro da janela
+    de tolerância (por omissão 10s). Evita registar entrada+saída por engano
+    quando o utilizador encosta o cartão duas vezes. Sem punch_time não se
+    aplica (deixa passar para não bloquear casos sem hora fiável).
+    """
+    if punch_time is None:
+        return None
+    cursor.execute(
+        """
+        SELECT AttendanceRecordID, PunchType, PunchTime
+        FROM Tbl_AttendanceRecords
+        WHERE StudentID = %s
+          AND ABS(TIMESTAMPDIFF(SECOND, PunchTime, %s)) < %s
+        ORDER BY PunchTime DESC
+        LIMIT 1
+        """,
+        (student_id, punch_time, window_seconds),
+    )
+    return cursor.fetchone()
+
+
 @router.post("/punch")
 def punch_attendance(
     request: AttendancePunchRequest,
@@ -715,6 +773,26 @@ def punch_attendance(
 
     try:
         student = get_student_by_card(cursor, request.card_uid)
+
+        # Anti-duplo-toque: se o cartão foi lido há poucos segundos, não cria
+        # uma segunda picagem (evita entrada+saída acidental).
+        recent = find_recent_duplicate_punch(
+            cursor,
+            student_id=student["student_id"],
+            punch_time=request.punch_time,
+        )
+        if recent is not None:
+            return {
+                "success": False,
+                "duplicate": True,
+                "message": (
+                    f"Picagem ignorada: já existe uma picagem de "
+                    f"{student['student_name']} há poucos segundos."
+                ),
+                "student_name": student["student_name"],
+                "last_punch_type": recent["PunchType"],
+            }
+
         punch_type = request.punch_type or resolve_auto_punch_type(
             cursor=cursor,
             student_id=student["student_id"],
@@ -775,9 +853,18 @@ def sync_offline_attendance(
     audit_username = get_audit_username(current_user)
     synced = []
     failed = []
+    duplicates = []
 
     try:
-        for index, item in enumerate(request.records):
+        # Processa por ordem cronológica para que a decisão automática
+        # entrada/saída (resolve_auto_punch_type) seja coerente quando o lote
+        # traz várias picagens do mesmo estudante.
+        ordered = sorted(
+            enumerate(request.records),
+            key=lambda pair: (pair[1].punch_time is None, pair[1].punch_time or datetime.now()),
+        )
+
+        for index, item in ordered:
             try:
                 student = get_student_by_card(cursor, item.card_uid)
                 punch_type = item.punch_type or resolve_auto_punch_type(
@@ -785,6 +872,17 @@ def sync_offline_attendance(
                     student["student_id"],
                     item.punch_time,
                 )
+
+                # Idempotência: se já existe esta picagem, não duplicar.
+                if attendance_record_exists(
+                    cursor,
+                    student_id=student["student_id"],
+                    punch_type=punch_type,
+                    punch_time=item.punch_time,
+                ):
+                    duplicates.append({"index": index, "card_uid": item.card_uid})
+                    continue
+
                 schedule_id = find_current_schedule(cursor, student.get("class_id"), item.punch_time)
                 attendance_id = insert_attendance_record(
                     cursor,
@@ -807,8 +905,11 @@ def sync_offline_attendance(
             module="attendance",
             entity_type="attendance_sync",
             entity_id=None,
-            summary=f"Sincronização offline: {len(synced)} registadas, {len(failed)} falhadas",
-            details={"synced": len(synced), "failed": len(failed)},
+            summary=(
+                f"Sincronização offline: {len(synced)} registadas, "
+                f"{len(duplicates)} duplicadas ignoradas, {len(failed)} falhadas"
+            ),
+            details={"synced": len(synced), "duplicates": len(duplicates), "failed": len(failed)},
         )
 
         # Commit successful records even when some records fail.
@@ -816,15 +917,17 @@ def sync_offline_attendance(
         # one card UID is invalid or one record has a bad timestamp.
         connection.commit()
 
-        if failed:
-            return {
-                "success": False,
-                "synced": synced,
-                "failed": failed,
-                "message": "Partial sync completed. Some records need attention.",
-            }
-
-        return {"success": True, "synced": synced, "failed": []}
+        return {
+            "success": not failed,
+            "synced": synced,
+            "duplicates": duplicates,
+            "failed": failed,
+            "message": (
+                "Partial sync completed. Some records need attention."
+                if failed
+                else "Sync completed."
+            ),
+        }
 
     finally:
         cursor.close()
