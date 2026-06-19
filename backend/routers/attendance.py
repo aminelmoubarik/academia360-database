@@ -15,6 +15,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from auth import require_roles
 from db import get_db
+from services.audit_logger import log_audit
 from models import (
     AttendanceCreate,
     AttendancePunchRequest,
@@ -734,6 +735,23 @@ def punch_attendance(
             is_synced=request.is_synced,
             audit_username=audit_username,
         )
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action="punch",
+            module="attendance",
+            entity_type="attendance_record",
+            entity_id=attendance_id,
+            summary=f"Picagem {punch_type} registada para {student['student_name']}",
+            details={
+                "student_id": student["student_id"],
+                "student_name": student["student_name"],
+                "punch_type": punch_type,
+                "punch_method": request.punch_method,
+                "schedule_id": schedule_id,
+                "is_synced": request.is_synced,
+            },
+        )
         connection.commit()
         return build_punch_response(cursor, attendance_id, student, punch_type, schedule_id)
 
@@ -781,6 +799,17 @@ def sync_offline_attendance(
                 synced.append({"index": index, "attendance_record_id": attendance_id})
             except Exception as exc:  # noqa: BLE001 - queremos devolver os erros por registo
                 failed.append({"index": index, "card_uid": item.card_uid, "error": str(exc)})
+
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action="offline_sync",
+            module="attendance",
+            entity_type="attendance_sync",
+            entity_id=None,
+            summary=f"Sincronização offline: {len(synced)} registadas, {len(failed)} falhadas",
+            details={"synced": len(synced), "failed": len(failed)},
+        )
 
         # Commit successful records even when some records fail.
         # This makes offline sync resilient: valid punches are not lost because

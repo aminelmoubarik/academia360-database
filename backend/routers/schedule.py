@@ -15,6 +15,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from auth import require_roles
 from db import get_db
+from services.audit_logger import log_audit
 from models import ScheduleApprovalRequest, ScheduleCreate, ScheduleGenerateRequest, ScheduleUpdate
 from services.schedule_generator import generate_schedule_algorithm
 from utils import get_audit_username, model_to_dict
@@ -966,6 +967,23 @@ def generate_schedule(
                 audit_username
             ))
 
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action="generate",
+            module="schedule",
+            entity_type="class_schedule",
+            entity_id=request.class_id,
+            summary=f"Horário gerado para turma {request.class_id}",
+            details={
+                "class_id": request.class_id,
+                "start_date": request.start_date,
+                "end_date": request.end_date,
+                "created_records": result["created_records"],
+                "score": result["score"],
+                "status": request.status,
+            },
+        )
         connection.commit()
 
         return {
@@ -1319,18 +1337,34 @@ def approve_schedule_batch(
             request.end_date
         ))
 
-        connection.commit()
-
-        if cursor.rowcount == 0:
+        updated_records = cursor.rowcount
+        if updated_records == 0:
             raise HTTPException(
                 status_code=404,
                 detail="Não foram encontrados horários em rascunho para aprovação"
             )
 
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action="approve",
+            module="schedule",
+            entity_type="class_schedule",
+            entity_id=request.class_id,
+            summary=f"Horário aprovado para turma {request.class_id}",
+            details={
+                "class_id": request.class_id,
+                "start_date": request.start_date,
+                "end_date": request.end_date,
+                "updated_records": updated_records,
+            },
+        )
+        connection.commit()
+
         return {
             "success": True,
             "message": "Horário aprovado com sucesso",
-            "updated_records": cursor.rowcount,
+            "updated_records": updated_records,
             "status": "approved"
         }
 
@@ -1375,18 +1409,35 @@ def reject_schedule_batch(
             request.end_date
         ))
 
-        connection.commit()
-
-        if cursor.rowcount == 0:
+        updated_records = cursor.rowcount
+        if updated_records == 0:
             raise HTTPException(
                 status_code=404,
                 detail="Não foram encontrados horários em rascunho para rejeição"
             )
 
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action="reject",
+            module="schedule",
+            entity_type="class_schedule",
+            entity_id=request.class_id,
+            summary=f"Horário rejeitado para turma {request.class_id}",
+            details={
+                "class_id": request.class_id,
+                "start_date": request.start_date,
+                "end_date": request.end_date,
+                "updated_records": updated_records,
+                "reason": request.reason,
+            },
+        )
+        connection.commit()
+
         return {
             "success": True,
             "message": "Horário rejeitado com sucesso",
-            "updated_records": cursor.rowcount,
+            "updated_records": updated_records,
             "status": "cancelled",
             "reason": request.reason
         }

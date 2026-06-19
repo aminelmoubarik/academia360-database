@@ -25,6 +25,7 @@ from routers import school_calendar
 from routers import schedule
 from routers import attendance
 from routers import attendance_justifications
+from routers import audit_logs
 
 
 tags_metadata = [
@@ -47,6 +48,7 @@ tags_metadata = [
     {"name": "Schedule", "description": "Schedule management and validation."},
     {"name": "Attendance", "description": "Attendance record management."},
     {"name": "Attendance Justifications", "description": "Absence justification management."},
+    {"name": "Audit Logs", "description": "Security and operational audit trail."},
 ]
 
 
@@ -140,3 +142,4 @@ app.include_router(school_calendar.router)
 app.include_router(schedule.router)
 app.include_router(attendance.router)
 app.include_router(attendance_justifications.router)
+app.include_router(audit_logs.router)

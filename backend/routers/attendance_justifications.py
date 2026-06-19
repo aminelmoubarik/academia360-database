@@ -3,6 +3,7 @@ from mysql.connector import IntegrityError
 
 from auth import require_roles
 from db import get_db
+from services.audit_logger import log_audit
 from models import AttendanceJustificationCreate, AttendanceJustificationUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -134,8 +135,24 @@ def create_justification(
             justification.document_path,
             audit_username,
         ))
+        justification_id = cursor.lastrowid
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action="create",
+            module="justifications",
+            entity_type="attendance_justification",
+            entity_id=justification_id,
+            summary=f"Justificação criada para estudante {justification.student_id}",
+            details={
+                "student_id": justification.student_id,
+                "schedule_id": justification.schedule_id,
+                "status": justification.status,
+                "justification_date": justification.justification_date,
+            },
+        )
         connection.commit()
-        return {"message": "Justification created successfully", "justification_id": cursor.lastrowid}
+        return {"message": "Justification created successfully", "justification_id": justification_id}
     except IntegrityError as error:
         connection.rollback()
         raise HTTPException(status_code=400, detail=str(error))
@@ -200,6 +217,16 @@ def update_justification(
             SET {", ".join(set_clauses)}
             WHERE JustificationID = %s
         """, tuple(values))
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action="review" if "status" in data else "update",
+            module="justifications",
+            entity_type="attendance_justification",
+            entity_id=justification_id,
+            summary=f"Justificação atualizada: {justification_id}",
+            details={"fields": sorted(data.keys()), "status": data.get("status")},
+        )
         connection.commit()
         return {"message": "Justification updated successfully", "justification_id": justification_id}
     except IntegrityError as error:
@@ -218,6 +245,15 @@ def delete_justification(
     cursor = connection.cursor(dictionary=True)
     try:
         cursor.execute("DELETE FROM Tbl_AttendanceJustifications WHERE JustificationID = %s", (justification_id,))
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action="delete",
+            module="justifications",
+            entity_type="attendance_justification",
+            entity_id=justification_id,
+            summary=f"Justificação eliminada: {justification_id}",
+        )
         connection.commit()
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Attendance justification not found")

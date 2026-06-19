@@ -181,3 +181,21 @@ GET /attendance/export/excel
 ```
 
 Both endpoints use the same filters as `/attendance`, including date range, class, student, discipline, punch type, punch method, synchronization status and search text.
+
+
+## Step 12 - Audit Logs
+
+The platform now includes a security and operational audit trail. Admin and Director users can review critical actions such as logins, failed login attempts, attendance punches, offline synchronisation, absence justification reviews, user management and schedule generation/approval decisions.
+
+Backend additions:
+
+- `GET /audit-logs`
+- `GET /audit-logs/summary`
+- `database/migration_audit_logs.sql`
+
+Frontend additions:
+
+- New `Auditoria` screen available from the sidebar for Admin and Director roles.
+- Filters by date, module, action and search text.
+
+Before using the screen on an existing database, run the audit migration.

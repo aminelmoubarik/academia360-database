@@ -3,6 +3,7 @@ from mysql.connector import IntegrityError
 
 from auth import get_password_hash, require_roles
 from db import get_db
+from services.audit_logger import log_audit
 from models import UserCreate, UserUpdate
 from utils import get_audit_username, model_to_dict
 
@@ -146,11 +147,22 @@ def create_user(
             audit_username
         ))
 
+        user_id = cursor.lastrowid
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action="create",
+            module="administration",
+            entity_type="user",
+            entity_id=user_id,
+            summary=f"Utilizador criado: {user.email}",
+            details={"email": user.email, "full_name": user.full_name, "role_id": user.role_id},
+        )
         connection.commit()
 
         return {
             "message": "Utilizador criado com sucesso",
-            "user_id": cursor.lastrowid
+            "user_id": user_id
         }
 
     except IntegrityError as error:
@@ -223,6 +235,16 @@ def update_user(
             WHERE UserID = %s
         """, tuple(values))
 
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action="update",
+            module="administration",
+            entity_type="user",
+            entity_id=user_id,
+            summary=f"Utilizador atualizado: {user_id}",
+            details={"fields": sorted(data.keys())},
+        )
         connection.commit()
 
         return {
@@ -292,6 +314,16 @@ def delete_user(
             WHERE UserID = %s
         """, (user_id,))
 
+        log_audit(
+            cursor,
+            current_user=current_user,
+            action="delete",
+            module="administration",
+            entity_type="user",
+            entity_id=user_id,
+            summary=f"Utilizador eliminado: {target['email']}",
+            details={"email": target["email"], "role": target["role"]},
+        )
         connection.commit()
 
         return {
